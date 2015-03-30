@@ -327,33 +327,34 @@ done
 
 echo "Copying files..."
 alias mkdir="mkdir -p"
+mkdir /tmp/crossfade-mounts
 if [ $liveImage ]; then
-	mkdir /squash /rootImage
+	mkdir /tmp/crossfade-mounts/squash /tmp/crossfade-mounts/rootImage
 	if [ $doNotRemount ]; then
-		ln -s "$liveImage" /liveImage
+		ln -s "$liveImage" /tmp/crossfade-mounts/liveImage
 	else
-		mkdir /liveImage
-		mount -o ro "$liveImage" /liveImage
+		mkdir /tmp/crossfade-mounts/liveImage
+		mount -o ro "$liveImage" /tmp/crossfade-mounts/liveImage
 	fi
-	mount /liveImage/LiveOS/squashfs.img /squash
-	mount /squash/LiveOS/ext3fs.img /rootImage
-	root='/rootImage/'
+	mount /tmp/crossfade-mounts/liveImage/LiveOS/squashfs.img /tmp/crossfade-mounts/squash
+	mount /tmp/crossfade-mounts/squash/LiveOS/ext3fs.img /tmp/crossfade-mounts/rootImage
+	root='/tmp/crossfade-mounts/rootImage'
 else
-	root='/'
+	root=''
 fi
 
-mkdir /musicPartition
-mount ${device}${musicPartition} /musicPartition
+mkdir /tmp/crossfade-mounts/musicPartition
+mount ${device}${musicPartition} /tmp/crossfade-mounts/musicPartition
 # Copy manual, license, and codecs to where Mac OS X and Windows can read them.
-cp -r ${root}usr/share/crossfade/*.html ${root}usr/share/crossfade/codecs /musicPartition
-mkdir /musicPartition/.mixxx-analysis
+cp -r ${root}/usr/share/crossfade/*.html ${root}/usr/share/crossfade/codecs /tmp/crossfade-mounts/musicPartition
+mkdir /tmp/crossfade-mounts/musicPartition/.mixxx-analysis
 # Mixxx library analysis data can reach hundreds of MiB, so /home/liveuser/.mixxx/analysis is a symlink to /home/liveuser/music/.mixxx-analysis
 if [ $installType == 'compressed' ]; then
-	mkdir /musicPartition/.autoinstall
-	echo "RPM files placed in this directory will be installed when booting Crossfade GNU/Linux." > /musicPartition/.autoinstall/README
+	mkdir /tmp/crossfade-mounts/musicPartition/.autoinstall
+	echo "RPM files placed in this directory will be installed when booting Crossfade GNU/Linux." > /tmp/crossfade-mounts/musicPartition/.autoinstall/README
 fi
-umount /musicPartition
-rmdir /musicPartition
+umount /tmp/crossfade-mounts/musicPartition
+rmdir /tmp/crossfade-mounts/musicPartition
 # Hide these directories from Windows
 # mattrib does not work reliably on mounted filesystems
 mv ~/.mtoolsrc ~/.mtoolsbackup &>/dev/null
@@ -366,44 +367,44 @@ rm ~/.mtoolsrc
 mv ~/.mtoolsbackup ~/.mtoolsrc &>/dev/null
 
 
-mkdir /homePartition
-mount ${device}${homePartition} /homePartition
-rsync --exclude 'liveuser/music/*' -pogAXtlHrDx ${root}home/ /homePartition
+mkdir /tmp/crossfade-mounts/homePartition
+mount ${device}${homePartition} /tmp/crossfade-mounts/homePartition
+rsync --exclude 'liveuser/music/*' -pogAXtlHrDx ${root}/home/ /tmp/crossfade-mounts/homePartition
 if [ $installType == 'compressed' ]; then
-	mkdir /homePartition/.autorun
-	echo "Executable files placed in this directory will be run when booting Crossfade GNU/Linux." > /homePartition/.autorun/README
-	cat > /homePartition/.autorun/localization << i18n
+	mkdir /tmp/crossfade-mounts/homePartition/.autorun
+	echo "Executable files placed in this directory will be run when booting Crossfade GNU/Linux." > /tmp/crossfade-mounts/homePartition/.autorun/README
+	cat > /tmp/crossfade-mounts/homePartition/.autorun/localization << i18n
 cat > /etc/locale.conf << localize
 $(cat /etc/locale.conf)
 localize
 
 ln -s "$(readlink /etc/localtime)" /etc/localtime
 i18n
-chmod +x /homePartition/.autorun/localization
+chmod +x /tmp/crossfade-mounts/homePartition/.autorun/localization
 fi
-umount /homePartition
-rmdir /homePartition
+umount /tmp/crossfade-mounts/homePartition
+rmdir /tmp/crossfade-mounts/homePartition
 
-mkdir /installTarget
-mount ${device}${systemPartition} /installTarget
+mkdir /tmp/crossfade-mounts/installTarget
+mount ${device}${systemPartition} /tmp/crossfade-mounts/installTarget
 if [ $installType == 'compressed' ]; then
-	cp -R /liveImage/* /installTarget || exit $?
+	cp -R /tmp/crossfade-mounts/liveImage/* /tmp/crossfade-mounts/installTarget || exit $?
 else
 	# preserve permissions, owners, groups, ACL's, xattrs, times, symlinks, hardlinks
-	rsync --exclude 'home/liveuser/*' --exclude 'installTarget' --exclude 'sys/*' --exclude 'proc/*' --exclude 'run/*' --exclude 'dev/*' --exclude 'tmp/*' --exclude 'var/tmp/*' --exclude 'etc/machine-id' -pogAXtlHrDx $root /installTarget || exit $?
-	${root}usr/bin/systemd-firstboot --root=/installTarget --copy-locale --copy-timezone --setup-machine-id &>/dev/null
-	sed -i 's/NoDisplay=false/NoDisplay=true/' '/installTarget/usr/share/applications/liveinst.desktop'
+	rsync --exclude 'home/liveuser/*' --exclude 'installTarget' --exclude 'sys/*' --exclude 'proc/*' --exclude 'run/*' --exclude 'dev/*' --exclude 'tmp/*' --exclude 'var/tmp/*' --exclude 'etc/machine-id' -pogAXtlHrDx ${root}/ /tmp/crossfade-mounts/installTarget || exit $?
+	${root}/usr/bin/systemd-firstboot --root=/tmp/crossfade-mounts/installTarget --copy-locale --copy-timezone --setup-machine-id &>/dev/null
+	sed -i 's/NoDisplay=false/NoDisplay=true/' '/tmp/crossfade-mounts/installTarget/usr/share/applications/liveinst.desktop'
 fi
 sync
 
 echo "Installing GRUB bootloader..."
-mount ${device}${efiPartition} ${root}mnt
+mount ${device}${efiPartition} ${root}/mnt
 if [ $liveImage ]; then
 	# chroot into Crossfade GNU/Linux image so users do not need to have GRUB with i386-pc, i386-efi, and x86_64-efi modules installed on their system. Also, Fedora packages the GRUB installer script as grub2-install whereas other distributions call it grub-install.
-	mount -o bind /dev /rootImage/dev
-	chroot /rootImage grub2-install --target=i386-pc --boot-directory=/mnt ${device} &>/dev/null
-	chroot /rootImage grub2-install --target=i386-efi --boot-directory=/mnt --efi-directory=/mnt --removable &>/dev/null
-	chroot /rootImage grub2-install --target=x86_64-efi --boot-directory=/mnt  --efi-directory=/mnt --removable &>/dev/null
+	mount -o bind /dev /tmp/crossfade-mounts/rootImage/dev
+	chroot /tmp/crossfade-mounts/rootImage grub2-install --target=i386-pc --boot-directory=/mnt ${device} &>/dev/null
+	chroot /tmp/crossfade-mounts/rootImage grub2-install --target=i386-efi --boot-directory=/mnt --efi-directory=/mnt --removable &>/dev/null
+	chroot /tmp/crossfade-mounts/rootImage grub2-install --target=x86_64-efi --boot-directory=/mnt  --efi-directory=/mnt --removable &>/dev/null
 else
 	grub2-install --target=i386-pc --boot-directory=/mnt ${device} &>/dev/null
 	grub2-install --target=i386-efi --boot-directory=/mnt --efi-directory=/mnt --removable &>/dev/null
@@ -418,20 +419,20 @@ if [ $installType == 'compressed' ]; then
 	kernelGRUBline="linux /isolinux/vmlinuz0 $kernelGRUBline root=live:UUID=$(blkid -s UUID -o value ${device}${systemPartition})"
 	initrdGRUBline="initrd /isolinux/initrd0.img"
 else
-	kernelVersion="/installTarget/boot/vmlinuz-*rtPAE"
+	kernelVersion="/tmp/crossfade-mounts/installTarget/boot/vmlinuz-*rtPAE"
 	kernelVersion="$(echo $kernelVersion)"
-	kernelVersion="${kernelVersion#\/installTarget\/boot\/vmlinuz-}"
+	kernelVersion="${kernelVersion#\/tmp\/crossfade-mounts\/installTarget\/boot\/vmlinuz-}"
 	if [ $liveImage ]; then
-		chroot /installTarget new-kernel-pkg --rpmposttrans $kernelVersion &>/dev/null
-		chroot /installTarget new-kernel-pkg --mkinitrd --dracut --depmod --install $kernelVersion &>/dev/null
+		chroot /tmp/crossfade-mounts/installTarget new-kernel-pkg --rpmposttrans $kernelVersion &>/dev/null
+		chroot /tmp/crossfade-mounts/installTarget new-kernel-pkg --mkinitrd --dracut --depmod --install $kernelVersion &>/dev/null
 	fi
 	# Prevent ldconfig.service from running at boot
-	chroot /installTarget /usr/lib/systemd/systemd-update-done &>/dev/null
+	chroot /tmp/crossfade-mounts/installTarget /usr/lib/systemd/systemd-update-done &>/dev/null
 	kernelGRUBline="linux /boot/vmlinuz-${kernelVersion} $kernelGRUBline root=UUID=$(blkid -s UUID -o value ${device}${systemPartition})"
 	initrdGRUBline="initrd /boot/initramfs-${kernelVersion}.img"
 fi
 
-cat > ${root}mnt/grub2/grub.cfg << grubcfg
+cat > ${root}/mnt/grub2/grub.cfg << grubcfg
 if keystatus; then # Check if keystatus is supported on this system
 	if keystatus --shift; then # Check if Shift key is pressed
 		timeout=-1
@@ -468,22 +469,22 @@ if [ "\$grub_platform" == "pc" ]; then # Memtest86 does not work from GRUB in EF
 	}
 fi
 grubcfg
-umount ${root}mnt
+umount ${root}/mnt
 if [ $liveImage ]; then
-	umount /rootImage/dev
-	umount /rootImage
-	rmdir /rootImage
-	umount /squash
-	rmdir /squash
+	umount /tmp/crossfade-mounts/rootImage/dev
+	umount /tmp/crossfade-mounts/rootImage
+	rmdir /tmp/crossfade-mounts/rootImage
+	umount /tmp/crossfade-mounts/squash
+	rmdir /tmp/crossfade-mounts/squash
 	if [ $doNotRemount ]; then
-		rm /liveImage
+		rm /tmp/crossfade-mounts/liveImage
 	else
-		umount /liveImage
-		rmdir /liveImage
+		umount /tmp/crossfade-mounts/liveImage
+		rmdir /tmp/crossfade-mounts/liveImage
 	fi
 fi
 
-umount /installTarget
-rmdir /installTarget
+umount /tmp/crossfade-mounts/installTarget
+rmdir /tmp/crossfade-mounts/installTarget
 
 echo "Crossfade GNU/Linux successfully installed on ${device}. You may now remove ${device}."
