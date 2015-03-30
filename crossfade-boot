@@ -1,0 +1,120 @@
+#!/bin/bash
+# Crossfade GNU/Linux 0.90 boot script
+# Copywrite (C) 2015 Be <be.0@gmx.com>
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The "source code" for Crossfade GNU/Linux referred to by the GNU General Public License means this boot script, the Kickstart file, the crossfade-usb-install script, and the manual.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# The GNU General Public License version 3 can be found as an HTML document at /license.html or a text document at /license . It is also available online at http://www.gnu.org/licenses/gpl.html
+#
+# Crossfade GNU/Linux is a Fedora® Remix containing software from sources other than Fedora, namely RPMFusion and PlanetCCRMA. Fedora® is a registered trademark of Red Hat, Inc. This is NOT provided or supported by the Fedora Project or Red Hat, Inc. Official Fedora Spins are available through the Fedora Project website, http://fedoraproject.org/ , through free downloads of live DVD/USB installation images. The Fedora Project also maintains links to vendors selling installation media and a volunteer initiative to provide free media upon request. See http://fedoraproject.org/get-fedora-all for more details.
+
+if ! grep crossfadeboot /proc/cmdline &>/dev/null; then
+	exit
+fi
+
+# Copy a kernel argument to environment variable of the same name
+getKernelArg() {
+	for arg in `cat /proc/cmdline` ; do
+		if [ "${arg##$1=}" != "${arg}" ]; then
+			eval "$1=${arg##$1=}"
+		fi
+	done
+}
+
+getRealDevice() {
+	local device="$(eval echo \$$1)"
+
+	# label/uuid/partuuid
+	if [ "${device##LABEL=}" != "$device" -o "${device##UUID=}" != "$device" -o "${device##PARTUUID=}" != "$device" ]; then
+		device="`/sbin/blkid -o device -t $device`"
+	fi
+
+	# loopback files
+	if [ ! -b "$device" ] && [ -f "$device" ]; then
+		loopdev=`losetup -f`
+		if [ "${device##/run/initramfs/live}" != "$device" ]; then
+			echo "Remounting live store r/w"
+			mount -o remount,rw /run/initramfs/live
+		fi
+		losetup $loopdev $1
+		device="$loopdev"
+	fi
+
+	# encrypted devices
+	if [ "$(/sbin/blkid -s TYPE -o value $device 2>/dev/null)" = "crypto_LUKS" ]; then
+		echo
+		echo "Setting up encrypted $device device"
+		plymouth ask-for-password --command="cryptsetup luksOpen $device Enc${device}"
+		device="/dev/mapper/Enc${device}"
+	fi
+
+	eval "$1=$device"
+}
+
+getKernelArg persistenthome
+getRealDevice persistenthome
+if [[ $persistenthome ]]; then
+	echo "Mounting persistent /home $persistenthome"
+	mount -o noatime,async $persistenthome /home
+	if [ -d /home/home ]; then
+		mount --bind /home/home /home
+	fi
+fi
+mkdir -p /home/liveuser/music
+
+getKernelArg music
+getRealDevice music
+if [[ $music ]]; then
+	echo "Mounting music partitions $music"
+	mkdir -p /home/liveuser/music
+	if [ "$(blkid -s TYPE -o value $music 2>/dev/null)" == "vfat" ]; then
+		mount -o umask=0,uid=1000,gid=1000,noatime,async,utf8 $music /home/liveuser/music
+	else
+		mount -o noatime,async $music  /home/liveuser/music
+	fi
+fi
+
+getKernelArg moremusic
+getRealDevice moremusic
+if [[ $moremusic ]]; then
+	echo "Mounting music partition $moremusic"
+	mkdir -p "/home/liveuser/music/partition-${moremusic: -1}"
+	if [ "$(blkid -s TYPE -o value $moremusic 2>/dev/null)" == "vfat" ]; then
+		mount -o umask=0,uid=1000,gid=1000,noatime,async,utf8 $moremusic "/home/liveuser/music/partition-${moremusic: -1}"
+	else
+		mount -o noatime,async $moremusic "/home/liveuser/music/partition-${moremusic: -1}"
+	fi
+fi
+
+chown -R liveuser:liveuser /home/liveuser
+restorecon -R /home/liveuser
+
+swaps="`blkid -t TYPE=swap -o device`"
+if ! grep noswap /proc/cmdline &>/dev/null; then
+	for s in $swaps; do
+		echo "Enabling swap partition $s"
+		swapon $s
+	done
+fi
+
+getKernelArg xdriver
+if [[ $xdriver ]]; then
+	cat > /etc/X11/xorg.conf.d/00-xdriver.conf << driverconf
+Section "Device"
+	Identifier	"Videocard0"
+	Driver	"$xdriver"
+EndSection
+driverconf
+fi
+
+if [ -d /home/liveuser/music/.autoinstall ]; then
+	rpm --upgrade /home/liveuser/music/.autoinstall/*.rpm
+fi
+
+for executable in /home/.autorun/*; do
+	if [ -x "$executable" ]; then
+		"$executable"
+	fi
+done

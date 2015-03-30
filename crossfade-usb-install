@@ -1,0 +1,489 @@
+#!/bin/bash
+# Crossfade GNU/Linux 0.90
+# USB drive installation script
+# Copywrite (C) 2015 Be <be.0@gmx.com>
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The "source code" for Crossfade GNU/Linux referred to by the GNU General Public License means this script, the crossfade-boot script, the Kickstart file, and the manual.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# The GNU General Public License version 3 can be found as an HTML document in the "license.html" or a text document in the "license" file included in this torrent. It is also available online at http://www.gnu.org/licenses/gpl.html
+#
+# Crossfade GNU/Linux is a Fedora® Remix containing software from sources other than Fedora, namely RPMFusion and PlanetCCRMA. Fedora® is a registered trademark of Red Hat, Inc. This is NOT provided or supported by the Fedora Project or Red Hat, Inc. Official Fedora Spins are available through the Fedora Project website, http://fedoraproject.org/ , through free downloads of live DVD/USB installation images. The Fedora Project also maintains links to vendors selling installation media and a volunteer initiative to provide free media upon request. See http://fedoraproject.org/get-fedora-all for more details.
+
+# Partition size variables are in units of MiB
+grubBiosSize=2
+musicPartition=1
+efiPartition=2
+efiSize=35 # a little bigger than neccessary for the files so it can be formated FAT32 rather than FAT16. Some EFI firmwares specifically require FAT32.
+systemPartition=3
+isoSize=860
+systemSize=4096
+homePartition=4
+homeSize=512
+installType='uncompressed'
+interactive="true"
+
+programName="`basename $0`"
+
+bold=`tput bold`
+normal=`tput sgr0`
+underline=`tput smul`
+nounderline=`tput rmul`
+shopt -s extglob
+
+function deviceCorrect {
+	if [ $1 ]; then
+		device="$1"
+		if [ "${device::5}" != "/dev/" ]; then
+			device="/dev/$device"
+		fi
+		if [ "${device%%+([1-9])}" != "$device" ]; then
+			device="${device%%+([1-9])}"
+		fi
+	fi
+}
+
+function argParse {
+	case $1 in
+		'-h'|'--help'|'--usage') fmt << helpmessage
+NAME:
+	$programName - Install Crossfade GNU/Linux onto a drive
+
+SYNOPSIS:
+	$programName [${bold}options${normal}] [${underline}device${nounderline}] [${underline}iso image${nounderline}]
+
+DESCRIPTION:
+	Install Crossfade GNU/Linux onto ${underline}device${nounderline} from ${underline}iso image${nounderline}. This will erase all data and partitions on ${underline}device${nounderline}, so backup all data on ${underline}device${nounderline} before running.
+
+	If ${underline}device${nounderline} is not specified, $programName will list available drives and prompt for one. A USB drive cannot reinstall Crossfade GNU/Linux onto itself, so a second USB drive must be plugged in if running $programName from a USB drive. If ${underline}device${nounderline} is smaller than 4 GiB, a read-only compressed (live) image is installed like a live DVD. For larger drives, this can be manually specified with the -c option, which may be advisable on 8 GB drives.
+	
+	If ${underline}iso image${nounderline} is not specified, $programName will search for a suitable ISO image. First, if running from a mounted ISO image, that mounted image will be copied. If running from Crossfade GNU/Linux, the running system will be copied. If running from another GNU/Linux system, the directory containing $programName will be searched for an ISO image.
+
+	$programName creates an MBR partition table on ${underline}device${nounderline} with a music partition formatted FAT, an EFI system partition, a partition for Crossfade GNU/Linux, and a /home partition, in that order. The sizes of the / (root) and /home partitions can be specified with the -r and -s options. Only the music partition will show in Windows and OS X. For drives over 2 TiB, the music partition is split into two at 2 TiB from the start of the drive. A hybrid MBR/GPT partition table is created so CDJs can read the music partition before 2 TiB. Like CDJs, Windows will only read the music partition before 2 TiB, but GNU/Linux and Mac OS X will read both music partitions.
+	
+OPTIONS:
+	-c, --compressed
+		Install a compressed (live) image like a live DVD. This is done automatically for drives under 4 GiB. This takes less space (${isoSize} MiB) but does not save changes to the operating system on shutdown. Crossfade GNU/Linux has a few features to work around this limitation. Changes to user configuration are saved on the /home partition. To permanently add software, put RPM files in /home/liveuser/music/.autoinstall by running "yumdownloader --resolve --destdir=/home/liveuser/music/.autoinstall PACKAGE-NAME" in a console as root from Crossfade GNU/Linux. Any executable files placed in /home/.autorun directory will be run at boot, after installing RPM files in /home/liveuser/music/.autoinstall. This could be used, for example, to write a shell script to patch system configuration files.
+
+	-h, --help, --usage
+		Display this help message and exit.
+
+	-n, --noninteractive
+		Do not ask for confirmation before making changes to ${underline}device${nounderline}. Use default values for partition sizes unless specified by -r or -s.
+		
+	-r, --rootsize (default 4096)
+		Size of / (root) partition in MiB. This will store the operating system and any additional software installed. It will not be readable by Windows, OS X, or CDJs. Has no effect for compressed (live) image installation because that uses the minimum space required for the read-only filesystem. A separate partition for storing music and other large data files will fill the rest of the drive not taken by the / and /home partitions.
+
+	-s, --homesize (default ${homeSize})
+		Size of /home partition in MiB. This will save user configurations and will not be readable by Windows, OS X, or CDJs. A separate partition for storing music and other large data files will fill the rest of the drive not taken by the / and /home partitions.
+helpmessage
+			exit;;
+		'-c'|'--compressed')
+			installType='compressed'
+			systemSize=$isoSize
+			if [ $homeSize == '512' ]; then
+				homeSize=128
+			fi
+			shift 1
+			argParse "$@";;
+		'-n'|'--noninteractive')
+			unset interactive
+			shift 1
+			argParse "$@";;
+		'-r'|'--rootsize')
+			if printf '%.0f' "$2" &>/dev/null; then # Check if $2 is a number
+				systemSize="$(printf '%.0f' $2)"
+			fi
+			if [ $systemSize -lt 3000 ]; then
+				systemSize=3000
+			fi
+			shift 2
+			argParse "$@";;
+		'-s'|'--homesize')
+			if printf '%.0f' "$2" &>/dev/null; then
+				homeSize="$(printf '%.0f' $2)"
+			fi
+			shift 2
+			argParse "$@";;
+		*)
+			deviceCorrect "$1"
+			liveImage="$2";;
+	esac
+}
+argParse "$@"
+
+if ! [ $UID == 0 ]; then
+	echo "Error! $programName must be run as root!"
+	exit 1
+fi
+
+if [ $liveImage ] ; then
+	if ! [ -a "$liveImage" ]; then
+		echo "$liveImage : no such file"
+		exit 2
+	elif ! [ -r "$liveImage" ]; then
+		echo "$liveImage : cannot read file"
+		exit 3
+	fi
+else
+	deviceScriptIsOn="$(df $(dirname $0)/LiveOS/squashfs.img --output=source 2>/dev/null| tail -n1)"
+	if [ -f "$(dirname $0)/LiveOS/squashfs.img" ]; then
+		# If running this script from a mounted ISO image or live USB system partition
+		doNotRemount=true
+		liveImage="$(dirname $0)"
+	elif [ -f /run/initramfs/live/LiveOS/squashfs.img ]; then # If running from Crossfade GNU/Linux live DVD or ISO image in s virtual machine
+		doNotRemount=true
+		liveImage=/run/initramfs/live
+	elif [ -f "$(ls $(dirname $0)/crossfade-*.iso 2>/dev/null | tail -n1)" ]; then
+		liveImage="$(ls $(dirname $0)/crossfade-*.iso 2>/dev/null | tail -n1)"
+	elif [ "$(dirname $0)" == '/usr/bin' ] || [ "$(dirname $0)" == '/bin' ]; then
+	# By default, sudo changes $PATH so /bin is before /usr/bin and Fedora symlinks /bin to /usr/bin. Thus, this script gets called as /bin/crossfade-usb-install from the launcher on the desktop
+		if [ $installType == 'compressed' ]; then
+			echo "Error! Compressed installation can only be done with an ISO image, from a live DVD, or from a USB drive with a compressed installation."
+			exit 4
+		fi
+		deviceScriptIsOn="$(df $0 --output=source 2>/dev/null| tail -n1)"
+		systemSize="$(( $(lsblk -o SIZE -b $(df $0 | sed -n 2p | cut -d' ' -f1) | sed -n 2p) / 2**20 ))"
+	else
+		echo "Error! No ISO image found in directory containing $programName ($(dirname $0)). You must specify an ISO image on the command line. Run $programName --help for details."
+	fi
+fi
+
+if ! [ $device ] || [ "$(lsblk $device -o type 2>/dev/null|sed -n 2p)" != "disk" ]; then
+	if [ $device ]; then
+		echo "$device is not a drive."
+	fi
+	
+	usbDrives="$(lsblk /dev/disk/by-path/*usb* 2>/dev/null | grep disk | cut -d\  -f1)"
+	
+	# If running from Crossfade GNU/Linux or mounted live image on a USB drive, remove the live USB drive from the list of USB drives that can be installed to
+	if [ "$(dirname $0)" == '/usr/bin' ] || [ "$(dirname $0)" == '/bin' ] || [ -f /run/initramfs/live/LiveOS/squashfs.img ] || ( [ -f "$(dirname $0)/LiveOS/squashfs.img" ] && [ "$(file --mime $liveImage 2>/dev/null | cut -d\  -f2)" != 'application/x-iso9660-image;' ] ) 2>/dev/null; then
+		if [ -f /run/initramfs/live/LiveOS/squashfs.img ]; then
+			liveDevice="$(readlink /run/initramfs/livedev)"
+		else
+			liveDevice=$deviceScriptIsOn
+		fi
+		liveDevice="${liveDevice%%+([1-9])}"
+		liveDevice="${liveDevice#\/dev\/}"
+		usbDrives="$(echo $usbDrives|sed s/$liveDevice//)"
+		usbDrives="$(echo $usbDrives)" # Remove extra space
+	fi
+	
+	case $(echo $usbDrives|wc --words) in
+		0)
+			echo "Error: no available USB drives found"
+			exit 5;;
+		1)
+			device="/dev/${usbDrives}";;
+		*)
+			echo "Available USB drives and their sizes:"
+			for dev in $usbDrives; do
+				echo "$dev ($(lsblk -o size /dev/$dev|sed -n 2p | sed 's/^[[:space:]]*//g') $(cat /sys/block/${dev}/device/vendor /sys/block/${dev}/device/model | tr -d '\n' | awk '{gsub (/^ */, "", $1); print $0}'))"
+			done
+			
+			read -p "USB drive to install Crossfade GNU/Linux onto: " response
+			deviceCorrect "$response"
+			printf '\n';;
+	esac
+fi
+
+if ! [ $device ]; then
+	echo "Error: a drive must be selected"
+	exit 7
+elif [ "$(lsblk $device -o type 2>/dev/null|sed -n 2p)" != "disk" ]; then
+	echo "Error: $device is not a drive."
+	exit 8
+fi
+
+# Maximum number of sectors addressable by MBR partition tables (8 binary digits (bytes) ** 4 bytes * 512-byte sectors = 2 TiB)
+mbrMax="$(( (2**8) ** 4 - 1))"
+driveSectors="$(sfdisk -s ${device})"
+
+if [ $driveSectors -gt $mbrMax ]; then
+	musicPartition=5
+fi
+
+deviceDescription="$device ($(lsblk -o size $device|sed -n 2p | sed -e 's/^[[:space:]]*//') $(cat /sys/block/${device#\/dev\/}/device/vendor /sys/block/${device#\/dev\/}/device/model | tr -d '\n' | awk '{gsub (/^ */, "", $1); print $0}'))"
+
+deviceSize=$(( $(lsblk -o SIZE -b "$device"|sed -n 2p) / 2**20 ))
+if [ $(( $homeSize + $efiSize + $systemSize)) -gt $deviceSize ]; then
+	if [ $deviceSize -lt $(( 512 + 35 + 4096 )) ] && [ $deviceSize -gt $(( $homeSize + $efiSize + $isoSize )) ]; then
+		if ([ "$(dirname $0)" == '/usr/bin' ] || [ "$(dirname $0)" == '/bin' ]) && ! [ $liveImage ]; then
+			echo "Error! ${deviceDescription} does not have enough space for a full installation, only a compressed installation. However, a compressed installation can only be done with an ISO image, from a live DVD, or from a USB drive with a compressed installation. A compressed installation cannot be done by copying the USB drive that Crossfade GNU/Linux is currently running from."
+			exit 9
+		fi
+		installType='compressed'
+		systemSize=$isoSize
+		if [ $homeSize == '512' ]; then
+			homeSize=128
+		fi
+	else
+		echo "Error! Not enough space on ${deviceDescription}. Choose smaller partition sizes with the -r and -s options. Run $programName --help for details."
+		exit 10
+	fi
+fi
+
+if [ $interactive ]; then
+	read -p "WARNING! Installing Crossfade GNU/Linux will ${bold}***ERASE ALL DATA***${normal} and all partitions on ${underline}${deviceDescription}${nounderline}!
+Double check that $deviceDescription is the USB drive you intend to install to! Backup all data on $device before continuing.
+You will be able to copy music and other data onto the drive after installation is finished.
+
+Are you sure you want to continue? (y/n): " response
+	if [[ "$response" != y ]]; then
+		exit 11
+	fi
+	printf '\n'
+fi
+
+if [ "$liveImage" != "/run/initramfs/livedev" ] && [ "$(file --mime $liveImage 2>/dev/null | cut -d\  -f2)" == 'application/x-iso9660-image;' ] && which checkisomd5 &>/dev/null; then
+	echo "Checking integrity of ${liveImage}..."
+	checkisomd5 --verbose "$liveImage" || exit $?
+	printf '\n'
+fi
+
+for dev in ${device}*; do
+	grep busy <(umount $dev 2>&1 || exit $?)
+done
+
+echo "Installing Crossfade GNU/Linux. This will take a few minutes. Do not remove $device until installation finishes.
+Partitioning ${device}..."
+
+if [ $driveSectors -le $mbrMax ]; then
+	# Windows only reads the first partition of drives with their removable bit set (many USB flash drives but generally not portable hard drives), and
+	# CDJs only read the first MBR partition,
+	# so music partition must be first.
+	# Having separate EFI and live image partitions will make upgrading the live image easy. Also, that makes it possible to edit grub.cfg from Crossfade GNU/Linux.
+	# Windows and OS X hide type EF (EFI System) and 83 (Linux) partitions, so users cannot easily mess up Crossfade GNU/Linux from these systems
+	# GNU/Linux automounting also ignores type EF partitions
+	# Linux does not care about partition type codes. If it can read the filesystem on a block device, it will.
+	musicSize="$(( $deviceSize - $efiSize - $systemSize - $homeSize ))"
+	sfdisk $device -D -u M &>/dev/null << partition-table
+,${musicSize},0c
+,${efiSize},ef,*
+,${systemSize},83
+,+,83
+partition-table
+	partprobe 2>&1 | grep "${device#\/dev\/}"
+else
+	echo "Note: Because $device is over 2 TiB, the music partition will only fill the drive up to 2 TiB. This is to maintain compatibility with CDJs (which only read the first partition in the MBR partition table). In GNU/Linux, it will appear as the fifth partition on the USB drive, labeled \"music\". Another partition will automatically be created from 2 TiB to the end of the drive. This secondary music partition is visible in OS X and in GNU/Linux, labeled \"more music\", but it is not visible to Windows or CDJs. Crossfade GNU/Linux automatically mounts the secondary music partition at /home/liveuser/music/partition-6 and music on it is scanned by Mixxx."
+	# Some EFI implementations will only look at the first FAT partition for an EFI bootloader, so put it first in the GPT partition table
+	sgdisk -Z $device &>/dev/null
+	sgdisk -n 1:0:+${grubBiosSize}M $device &>/dev/null
+	sgdisk -n 2:0:+${efiSize}M $device &>/dev/null 
+	sgdisk -n 3:0:+${systemSize}M $device &>/dev/null
+	sgdisk -n 4:0:+${homeSize}M $device &>/dev/null
+	sgdisk -n 5:0:${mbrMax} $device &>/dev/null
+	sgdisk -n 6:0:0 $device &>/dev/null
+	partprobe 2>&1 | grep "${device#\/dev\/}"
+	sgdisk -c 1:'GRUB BIOS Partition' $device &>/dev/null
+	sgdisk -t 1:'ef02' $device &>/dev/null
+	sgdisk -c 2:'EFI System Partition' $device &>/dev/null
+	sgdisk -t 2:'ef00' $device &>/dev/null
+	sgdisk -c 3:'Crossfade GNU/Linux' $device &>/dev/null
+	sgdisk -c 4:'home' $device &>/dev/null
+	sgdisk -c 5:'music' $device &>/dev/null
+	# Mac OS X will not mount GPT partitions with type code ef00, ef02, or types it does not recognize, such as 8300 (sgdisk's default). (Neither will Windows, but see next comment.)
+	sgdisk -t 5:'0700' $device &>/dev/null
+	# Windows will only read MBR partition table on drives with a hybrid MBR, so partition 6 is only accessible to OS X and GNU/Linux. Therefore, there is no need for a FAT filesystem.
+	mkfs.hfsplus -v 'more music' ${device}$(( $musicPartition + 1)) &>/dev/null
+	sgdisk -c 6:'more music' $device &>/dev/null
+	sgdisk -t 6:'af00' $device &>/dev/null
+
+	# Create a hybrid MBR with the music partition listed first because CDJs only read MBR partition tables and only read the first partition.
+	# Windows will only read the MBR of any drive with a hybrid MBR. (Windows XP and older do not support GPT.)
+	# Mac EFI firmware will read the MBR partition table of USB drives if there is no type EE partition first in the MBR, so the EFI partition with GRUB must be included in hybrid MBR.
+	# OS X will read the GPT partition table (unless a second type EE MBR partition is added).
+	# See http://www.rodsbooks.com/gdisk/hybrid.html for more information about hybrid MBRs.
+	sgdisk -h ${musicPartition}:${efiPartition} ${device} &>/dev/null
+	sfdisk $device --dump > /mbr-table
+	device="${device#\/dev\/}"
+	grep ${device}2 /mbr-table > /mbr-partition-1
+	grep ${device}3 /mbr-table > /mbr-partition-2
+	grep ${device}1 /mbr-table > /mbr-partition-3 # protective MBR type EE partition
+	device="/dev/${device}"
+	sed -i "/start/d" /mbr-table
+	cat /mbr-table /mbr-partition-[1-3] 2>/dev/null | sfdisk --force ${device} &>/dev/null
+	rm /mbr-table /mbr-partition-[1-3] 2>/dev/null
+	# Windows will only read MBR partitions with type codes it recognizes
+	sfdisk $device -c 0c &>/dev/null
+fi
+
+mkfs.vfat -n music ${device}${musicPartition} &>/dev/null
+mkfs.vfat -n EFI -F 32 ${device}${efiPartition} &>/dev/null
+if [ $installType == 'compressed' ]; then
+	# Mac EFI firmware freezes when it tries to read a partition on a USB drive with an ISO9660 filesystem, so copy contents of ISO image onto a FAT filesystem
+	mkfs.vfat -n Crossfade ${device}${systemPartition} &>/dev/null
+	mkfs.ext4 -F -O ^has_journal -L home ${device}${homePartition} &>/dev/null # Journaling creates unneeded I/O on USB drive
+else
+	mkfs.ext4 -F -L Crossfade ${device}${systemPartition} &>/dev/null
+	mkfs.ext4 -F -L home ${device}${homePartition} &>/dev/null
+fi
+
+# Unmount all partitions in case they were automounted
+for dev in ${device}*; do
+	grep busy <(umount $dev 2>&1 || exit $?)
+done
+
+echo "Copying files..."
+alias mkdir="mkdir -p"
+if [ $liveImage ]; then
+	mkdir /squash /rootImage
+	if [ $doNotRemount ]; then
+		ln -s "$liveImage" /liveImage
+	else
+		mkdir /liveImage
+		mount -o ro "$liveImage" /liveImage
+	fi
+	mount /liveImage/LiveOS/squashfs.img /squash
+	mount /squash/LiveOS/ext3fs.img /rootImage
+	root='/rootImage/'
+else
+	root='/'
+fi
+
+mkdir /musicPartition
+mount ${device}${musicPartition} /musicPartition
+# Copy manual, license, and codecs to where Mac OS X and Windows can read them.
+cp -r ${root}usr/share/crossfade/*.html ${root}usr/share/crossfade/codecs /musicPartition
+mkdir /musicPartition/.mixxx-analysis
+# Mixxx library analysis data can reach hundreds of MiB, so /home/liveuser/.mixxx/analysis is a symlink to /home/liveuser/music/.mixxx-analysis
+if [ $installType == 'compressed' ]; then
+	mkdir /musicPartition/.autoinstall
+	echo "RPM files placed in this directory will be installed when booting Crossfade GNU/Linux." > /musicPartition/.autoinstall/README
+fi
+umount /musicPartition
+rmdir /musicPartition
+# Hide these directories from Windows
+# mattrib does not work reliably on mounted filesystems
+mv ~/.mtoolsrc ~/.mtoolsbackup &>/dev/null
+cat > ~/.mtoolsrc << mtoolsconfig
+drive a: file="${device}${musicPartition}"
+mtools_skip_check=1
+mtoolsconfig
+mattrib +h -/ a:/.mixxx-analysis a:/.autoinstall &>/dev/null
+rm ~/.mtoolsrc
+mv ~/.mtoolsbackup ~/.mtoolsrc &>/dev/null
+
+
+mkdir /homePartition
+mount ${device}${homePartition} /homePartition
+rsync --exclude 'liveuser/music/*' -pogAXtlHrDx ${root}home/ /homePartition
+if [ $installType == 'compressed' ]; then
+	mkdir /homePartition/.autorun
+	echo "Executable files placed in this directory will be run when booting Crossfade GNU/Linux." > /homePartition/.autorun/README
+	cat > /homePartition/.autorun/localization << i18n
+cat > /etc/locale.conf << localize
+$(cat /etc/locale.conf)
+localize
+
+ln -s "$(readlink /etc/localtime)" /etc/localtime
+i18n
+chmod +x /homePartition/.autorun/localization
+fi
+umount /homePartition
+rmdir /homePartition
+
+mkdir /installTarget
+mount ${device}${systemPartition} /installTarget
+if [ $installType == 'compressed' ]; then
+	cp -R /liveImage/* /installTarget || exit $?
+else
+	# preserve permissions, owners, groups, ACL's, xattrs, times, symlinks, hardlinks
+	rsync --exclude 'home/liveuser/*' --exclude 'installTarget' --exclude 'sys/*' --exclude 'proc/*' --exclude 'run/*' --exclude 'dev/*' --exclude 'tmp/*' --exclude 'var/tmp/*' --exclude 'etc/machine-id' -pogAXtlHrDx $root /installTarget || exit $?
+	${root}usr/bin/systemd-firstboot --root=/installTarget --copy-locale --copy-timezone --setup-machine-id &>/dev/null
+	sed -i 's/NoDisplay=false/NoDisplay=true/' '/installTarget/usr/share/applications/liveinst.desktop'
+fi
+sync
+
+echo "Installing GRUB bootloader..."
+mount ${device}${efiPartition} ${root}mnt
+if [ $liveImage ]; then
+	# chroot into Crossfade GNU/Linux image so users do not need to have GRUB with i386-pc, i386-efi, and x86_64-efi modules installed on their system. Also, Fedora packages the GRUB installer script as grub2-install whereas other distributions call it grub-install.
+	mount -o bind /dev /rootImage/dev
+	chroot /rootImage grub2-install --target=i386-pc --boot-directory=/mnt ${device} &>/dev/null
+	chroot /rootImage grub2-install --target=i386-efi --boot-directory=/mnt --efi-directory=/mnt --removable &>/dev/null
+	chroot /rootImage grub2-install --target=x86_64-efi --boot-directory=/mnt  --efi-directory=/mnt --removable &>/dev/null
+else
+	grub2-install --target=i386-pc --boot-directory=/mnt ${device} &>/dev/null
+	grub2-install --target=i386-efi --boot-directory=/mnt --efi-directory=/mnt --removable &>/dev/null
+	grub2-install --target=x86_64-efi --boot-directory=/mnt  --efi-directory=/mnt --removable &>/dev/null
+fi
+
+kernelGRUBline="crossfadeboot rhgb music=UUID=$(blkid -s UUID -o value ${device}${musicPartition}) persistenthome=UUID=$(blkid -s UUID -o value ${device}${homePartition})"
+if [ $driveSectors -gt $mbrMax ]; then
+	kernelGRUBline="$kernelGRUBline moremusic=UUID=$(blkid -s UUID -o value ${device}$(($musicPartition + 1)) )"
+fi
+if [ $installType == 'compressed' ]; then
+	kernelGRUBline="linux /isolinux/vmlinuz0 $kernelGRUBline root=live:UUID=$(blkid -s UUID -o value ${device}${systemPartition})"
+	initrdGRUBline="initrd /isolinux/initrd0.img"
+else
+	kernelVersion="/installTarget/boot/vmlinuz-*rtPAE"
+	kernelVersion="$(echo $kernelVersion)"
+	kernelVersion="${kernelVersion#\/installTarget\/boot\/vmlinuz-}"
+	if [ $liveImage ]; then
+		chroot /installTarget new-kernel-pkg --rpmposttrans $kernelVersion &>/dev/null
+		chroot /installTarget new-kernel-pkg --mkinitrd --dracut --depmod --install $kernelVersion &>/dev/null
+	fi
+	# Prevent ldconfig.service from running at boot
+	chroot /installTarget /usr/lib/systemd/systemd-update-done &>/dev/null
+	kernelGRUBline="linux /boot/vmlinuz-${kernelVersion} $kernelGRUBline root=UUID=$(blkid -s UUID -o value ${device}${systemPartition})"
+	initrdGRUBline="initrd /boot/initramfs-${kernelVersion}.img"
+fi
+
+cat > ${root}mnt/grub2/grub.cfg << grubcfg
+if keystatus; then # Check if keystatus is supported on this system
+	if keystatus --shift; then # Check if Shift key is pressed
+		timeout=-1
+	else
+		timeout=0
+	fi
+else
+	timeout=5
+fi
+
+if [ "\$grub_platform" == "efi" ]; then
+	insmod efi_gop
+	insmod efi_uga
+	insmod ieee1275_fb
+	insmod vbe
+	insmod vga
+	insmod video_bochs
+	insmod video_cirrus
+	insmod all_video
+	set gfxpayload=keep
+fi
+
+default=0
+menuentry "Crossfade GNU/Linux 0.90" {
+	search --fs-uuid $(blkid -o value -s UUID ${device}${systemPartition}) --set root
+	$kernelGRUBline
+	$initrdGRUBline
+}
+
+if [ "\$grub_platform" == "pc" ]; then # Memtest86 does not work from GRUB in EFI mode
+	menuentry "Memtest86+" {
+		search --fs-uuid $(blkid -o value -s UUID ${device}${systemPartition}) --set root
+		linux16 /isolinux/memtest
+	}
+fi
+grubcfg
+umount ${root}mnt
+if [ $liveImage ]; then
+	umount /rootImage/dev
+	umount /rootImage
+	rmdir /rootImage
+	umount /squash
+	rmdir /squash
+	if [ $doNotRemount ]; then
+		rm /liveImage
+	else
+		umount /liveImage
+		rmdir /liveImage
+	fi
+fi
+
+umount /installTarget
+rmdir /installTarget
+
+echo "Crossfade GNU/Linux successfully installed on ${device}. You may now remove ${device}."

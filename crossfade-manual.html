@@ -1,0 +1,218 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-US">
+	<head>
+		<meta http-equiv="content-type" content="text/html;charset=UTF-8" />
+		<title>Crossfade GNU/Linux 0.90 Manual</title>
+		
+		<style type="text/css">
+			body { background-color: #000000; color: #aaaaaa; }
+			h1 { text-align: center; font-size: 52px; }
+			pre { white-space: pre-wrap; }
+			em { font-weight: bold; }
+		</style>
+	</head>
+	
+	<body>
+		<h1>Crossfade GNU/Linux 0.90 Manual</h1>
+	
+		<div id="table-of-contents">
+			<h2>Table of Contents</h2>
+			
+			<ol>
+				<li><a href="#introduction">Introduction</a></li>
+				
+				<li>
+					<a href="#installation">Installation</a>
+					<ol>
+						<li><a href="#usb">USB Drive</a></li>
+						<li><a href="#dvd">Live DVD</a></li>
+					</ol>
+				</li>
+				
+				<li><a href="#boot">Boot From A USB Drive Or DVD</a></li>
+				
+				<li>
+					<a href="#get-started">Get Started DJing</a>
+					<ol>
+						<li><a href="#import-library">Import Music From Another Drive</a></li>
+						<li><a href="#configure-controllers">Configure MIDI &amp; HID Controllers</a></li>
+						<li><a href="#fun">Have Fun!</a></li>
+						<li><a href="#mixxx-manual">Mixxx Manual</a></li>
+					</ol>
+				</li>
+				
+				<li><a href="#other">Sound Outside Of Mixxx</a></li>
+				
+				<li><a href="#modification">Modification</a></li>
+				
+				<li>
+					<a href="#legal">Legal Information</a>
+					<ol>
+						<li><a href="#trademarks">Trademarks</a></li>
+						<li><a href="#copyleft">Copyleft</a></li>
+					</ol>
+				</li>
+			</ol>
+		</div>
+		
+		<ol id="main">
+			<li id="introduction">
+				<h2>Introduction</h2>
+				
+				<p id="intro-p">Welcome to Crossfade <a href="http://www.gnu.org/gnu/why-gnu-linux.html">GNU/Linux</a> 0.90, the cross-platform digital DJ system for USB flash and portable hard drives. Crossfade GNU/Linux allows you to use a USB drive with your music collection to DJ on any modern PC (with an x86 or x86_64 CPU), including Apple Macs, using the DJ program <a href="http://mixxx.org/">Mixxx</a> customized however you like. USB drives with Crossfade GNU/Linux <a href="#installation">installed</a> on them show up in Windows, Mac OS X, and GNU/Linux as normal USB drives that music or any other data can be copied onto. Unlike ordinary USB drives, they can also be used to <a href="#boot">boot</a> Crossfade GNU/Linux. After rebooting, the PC will be back to how it was before. If you are reading this manual on a USB drive or DVD, that device already has Crossfade GNU/Linux installed on it and you can <a href='#boot'>boot</a> from it.</p>
+				
+				<p id="free-software">Crossfade GNU/Linux and Mixxx are <a href="http://www.gnu.org/philosophy/free-sw.html">free software</a>&mdash;free as in artistic freedom, not just price. You are free and encouraged to use, copy, <em>share</em>, and <a href="#modification">modify</a> this software however you wish and share your changes with the community on the <a href="http://mixxx.org/forums/">Mixxx forums</a>. Sharing Crossfade GNU/Linux can be a great way to encourage friends to start DJing or introduce DJs who use proprietary software such as Traktor, Serato Scratch, Serato Itch, or Virtual DJ to free software without having to commit to installing anything on their PC.</p>
+				
+				<p id="included-software">Crossfade GNU/Linux is setup with a <a href="https://rt.wiki.kernel.org/index.php/Main_Page">realtime Linux kernel</a> for optimal performance. It includes the <a href="http://xfce.org/">Xfce</a> graphical desktop environment, <a href="http://midori-browser.org/about/">Midori</a> web browser, and <a href="https://www.clementine-player.org/">Clementine</a> music player. It has a number of other programs for live musical performance including the <a href="http://www.hydrogen-music.org/">Hydrogen</a> drum machine, <a href="http://essej.net/sooperlooper/">SooperLooper</a> and <a href="http://www.giadamusic.com/">Giada</a> loopers, <a href="http://guitarix.sourceforge.net/">Guitarix</a> electric guitar amplifier, <a href="http://rakarrack.sourceforge.net/">Rakarrak</a> guitar effects board, <a href="http://ardour.org/">Ardour</a> digital audio workstation, <a href="http://audacity.sourceforge.net/">Audacity</a> wave editor, and many LV2 and LADSPA audio effects plugins. Additionally, Crossfade GNU/Linux includes utilities that make it useful as a computer rescue system, such as the <a href="http://gparted.sourceforge.net/">GParted</a> partition manager, <a href="http://www.gnu.org/software/grub/manual/grub.html">GNU GRUB</a> bootloader, <a href="http://www.cgsecurity.org/wiki/TestDisk">TestDisk</a> data recovery program, <a href="http://www.fsarchiver.org/Main_Page">FSArchiver</a> filesystem backup program, and MATE Disk Usage Analyzer. Crossfade GNU/Linux is a <a href="https://fedoraproject.org/wiki/Remix">Fedora&reg; Remix</a> containing software from sources other than Fedora, namely <a href="http://rpmfusion.org/">RPMFusion</a> and <a href="http://ccrma.stanford.edu/planetccrma/software/">PlanetCCRMA</a>, as well as scripts and configuration specific to Crossfade GNU/Linux.</p>
+			</li>
+			
+			<li id="installation">
+				<h2>Installation</h2>
+				
+				<p>Crossfade GNU/Linux is designed primarily to run from USB drives. USB drives can store music, configuration changes, and added software across reboots and run Crossfade GNU/Linux all on one USB drive, whereas DVDs cannot store changes. DJing from a live DVD would require having music stored on some other drive. For instructions on how to boot USB drives and DVDs, <a href="#boot">see below</a>.</p>
+				
+				<ol>
+					<li id="usb">
+						<h3>USB Drives</h3>
+						
+						<p id="usb-intro">The crossfade-usb-install script included in Crossfade GNU/Linux can automatically partition a USB drive so it can boot Crossfade GNU/Linux, music can be copied onto the drive from Windows &amp; Mac OS X, and it will save changes across reboots. The script will erase everything on the drive to install Crossfade GNU/Linux, so <em>backup all data onto another drive</em>. The data can be copied back to the USB drive after installation.</p>
+						
+						<p>A drive with at least 2 GB is required although 16 GB or more is recommended. If you want to specify the sizes of the / (root) and /home partitions, use the -r and -s options with crossfade-usb-install. Also, to save space, crossfade-usb-install can install a compressed read-only image like a live DVD with the -c option (this is done automatically for drives &lt;= 4 GB). For details about these options, run "crossfade-usb-install --help". If you do not understand these options, do not worry about it; just follow the instructions below.</p>
+						
+						<ol>
+							<li id="usb-gnu-linux">
+								<h4>From GNU/Linux</h4>
+								
+								<p>Run the crossfade-usb-install script in a console as root (run "su" or "sudo" first) with the USB drive plugged in and follow the prompts on the screen. The crossfade-usb-install script is included in the torrent. If you see an error saying "Permission denied", run "chmod +x /path/to/crossfade-usb-install" then run the script. If you only have the ISO image and not the script by itself, mount the ISO image and run the script from the top level of the mounted ISO image.</p>
+							</li>
+							
+							<li id="usb-windows-osx">
+								<h4>From Windows or Mac OS X</h4>
+								
+								<p>The crossfade-usb-install script must be run from GNU/Linux, but it is not necessary to have GNU/Linux installed on a PC to install Crossfade GNU/Linux to a USB drive. The ISO image of Crossfade GNU/Linux can be booted in a virtual machine with VirtualBox and crossfade-usb-install can be run in the virtual machine. Alternatively, Crossfade GNU/Linux can be <a href="#boot">booted</a> from a <a href="#dvd">live DVD</a> and crossfade-usb-install can be run from the DVD.</p>
+						
+								<p id="VirtualBox">To boot the ISO image in VirtualBox, first <a href="https://www.virtualbox.org/wiki/Downloads">install VirtualBox</a>. On Windows, if a dialog pops up asking about installing a driver for a device called "VirtualBox USB", let Windows search for and install the driver automatically. VirtualBox will not be needed once Crossfade GNU/Linux is installed to a USB drive, so it can be uninstalled afterwards.</p>
+								
+								<p>Open VirtualBox and click the "New" button in the top left of the main window to create a new virtual machine. It does not matter what the virtual machine is called or what type of system it is marked as in VirtualBox. Click "Next" and give the virtual machine 1024 MiB of memory. If this much memory is not available, the virtual machine can work with less memory, but the less it is given, the slower it will run. Click "Next" and select "Do not create a virtual hard drive". Press "Create" and then "Continue" on the dialog box warning about not being able to install an operating system on the virtual machine.</p>
+								
+								<p>Click "Settings" towards the top left of the main VirtualBox window to open the virtual machine's settings window. Go to "System" on the virtual machine's settings window (on the left in Windows, on the top in OS X). Click the "Processor" tab and check "Enable PAE/NX". Go to "Storage" (on the left in Windows, on the top in OS X). Select "Controller: IDE" and click the icon of the CD with the green "+" sign. Click "Choose disk" on the dialog box that pops up. In the file selection dialog, navigate to wherever you saved the ISO image file of Crossfade GNU/Linux and select the ISO image. Plug in the USB drive.</p>
+								
+								<p>On Mac OS X, unmount the USB drive by dragging the icon of it on the desktop to the trash or opening Finder and clicking the eject button next to the drive on the left panel of Finder. Go to "Ports" on the top of the virtual machine's configuration window in VirtualBox and select the "USB" tab on top.</p>
+								
+								<p>On Windows, go to "USB" on the left of the virtual machine's configuration window.</p>
+								
+								<p>On either Windows or OS X, in the virtual machine's configuration window, click the icon with the USB plug and the green "+" sign and select the USB drive. If the USB drive is plugged in but it is not listed in VirtualBox, it might be plugged into a USB 3.0 port. Unfortunately, VirtualBox does not yet support USB 3.0. USB 3.0 ports are usually blue inside and may have a USB trident symbol labeled with "SS" (for "superspeed"). Some new computers only have USB 3.0 ports. If the computer has any USB 2.0 ports, plug the drive into one of those. The drive can also be plugged into a USB 2.0 hub and the USB 2.0 hub can be plugged into a USB 3.0 port on the PC. After plugging the USB drive into a USB 2.0 port or USB 2.0 hub, look again for the USB drive in the menu brought up by clicking the icon with the USB plug and green "+" sign. Note that VirtualBox will limit USB 2.0 devices to USB 1.1 speeds without a proprietary extension, so it will take a while to install to the USB drive. If no USB 2.0 ports or hubs are available, <a href="#dvd">burn a live DVD</a> if the computer has a DVD drive or use <a href="https://www.virtualbox.org/ticket/8873#trac-change-34">this workaround</a>.</p>
+								
+								<p>Once the virtual machine is set to use the USB drive, press "OK" on the configuration window then "Start" towards the top left of the main VirtualBox window to boot the virtual machine. If Windows asks about installing a driver for a device called "VirtualBox USB", let Windows search for and install the driver automatically.</p>
+								
+								<p>Once Crossfade GNU/Linux has booted, either in VirtualBox or from a live DVD, double click the "Install to USB Drive" icon on the desktop to run crossfade-usb-install and follow the prompts on the screen.</p>
+							</li>
+						</ol>
+
+						<p>After crossfade-usb-install finishes, the USB drive can be <a href="#boot">booted</a> to run Crossfade GNU/Linux. Music (and any other data) can be copied to and from it with Windows, OS X, or GNU/Linux. On Windows and OS X, only the partition for storing data will be visible. To access this partition in Crossfade GNU/Linux, double click the "Music" folder on the desktop. On other GNU/Linux systems, mount the first partition on the drive, labeled "music". By default, Mixxx scans this partition for music when started. It is recommended that you create a plain text file on this partition with your contact information in case your USB drive is lost.</p>
+					</li>
+					
+					<li id="dvd">
+						<h3>Live DVD</h3>
+						
+						<p>The ISO image of Crossfade GNU/Linux can be used to burn a bootable DVD from any CD/DVD burning software. In GNU/Linux, use the graphical programs <a href="http://sourceforge.net/projects/gnomebaker/">GnomeBaker</a> (included in Crossfade GNU/Linux), <a href="https://k3b.kde.org/">K3b</a>, <a href="https://wiki.gnome.org/Apps/Brasero/">Brasero</a>, or the command line programs <a href="http://scdbackup.sourceforge.net/xorriso_eng.html">xorriso</a> or wodim. Versions of Windows 7 and newer can burn ISO images by right clicking on the file in Windows Explorer and clicking "Burn disc image". For versions of Windows older than 7, use the <a href="http://infrarecorder.org/">InfraRecorder</a> program. In Mac OS X, use Disk Utility. Whichever program you use, be sure to burn the ISO file as a disc image, not as a file on a data disc. If the ISO image file is burned onto a data disc, the DVD will not be bootable and when mounted from another OS, it will only show that it has the ISO image file on it. If the ISO file is burned as a disc image it will show the contents of the image, such as the "LiveOS" and "isolinux" directories. Once you have made a live DVD, follow the <a href="#boot">instructions below</a> to boot it.</p>
+					</li>
+				</ol>
+			</li>
+			
+			<li id="boot">
+				<h2>Boot From A USB Drive Or DVD</h2>
+					
+				<p id="boot-menu">To use Crossfade GNU/Linux, it needs to be <a href="#usb">installed on a USB drive</a> or <a href="#dvd">DVD</a>. No software needs to be installed onto a PC to boot a USB drive or DVD.</p>
+				
+				<p>Insert the USB drive or DVD into the PC and reboot. Bring up the boot device menu to select which device to boot from. On PCs with Windows 8, press Shift while rebooting from Windows 8 to bring up the boot menu. On Apple Macs, press the Alt/Option key as the computer boots to bring up the boot menu. On all other PCs, when the computer is starting up again, before any operating system loads, watch for some text along the lines of "Boot Menu" or "Boot Devices". If there is no text related to booting on the screen, change the boot order settings as described in the paragraph below. If there is text about a boot menu or boot devices, there should be a key, likely F12 or F10, listed next to it. Press this key as the computer is booting, before any operating system starts to load. If the operating system installed on the computer starts to load, restart and be sure to press the listed key before the normal operating system starts again. In the boot device menu, select the USB or DVD drive with the arrow keys and hit Enter. On Macs, USB drives will be labeled "EFI Boot". Other computers will likely show the manufacturer and model of the USB or DVD drive.</p>
+
+				<p id="boot-order">If the computer does not have a boot device menu (or you do not want to have to bring it up every time to boot Crossfade GNU/Linux), then change the device boot order in the BIOS or EFI firmware settings. Be careful, as changing firmware settings can make a computer unbootable, although probably not irrecoverably unbootable. Apple's EFI firmware on Macs does not have a simple graphical way to access these settings. On non-Mac PCs, watch as the computer is booting for some text along the lines of "Setup" or "Settings" with a key listed next to it, likely F2 or Escape. Press this key as the computer is booting. In the settings menu, look for a tab labeled "Boot" on the top or side of the screen. On many firmwares, the boot order can be changed by selecting boot devices with the arrow keys and pressing Shift + Up/Down to move them in the boot order. However, exactly how to change the boot order varies on every computer, so look for instructions on the screen. Move the USB and/or DVD drives above the internal hard or solid state drive in the boot order. Exit saving the changes (again, look on screen for instructions; how to do this will vary on every computer). The computer should reboot and if a bootable USB drive or DVD is plugged in, the computer should boot from that.</p>
+				
+				<p id="boot-process">Once the BIOS or EFI firmware boots the USB drive or DVD, the screen may go blank for a few seconds before starting to boot Linux; do not panic if nothing shows up instantly. If you want to edit kernel parameters or use the GRUB shell, the GRUB menu will appear for 5 seconds when booting with EFI. To bring up the GRUB menu when booting with BIOS, hold Shift as the computer starts. If you do not know why you might want to edit kernel parameters or use the GRUB shell, do not worry; just let Crossfade GNU/Linux start booting.</p>
+			</li>
+			
+			<li id="get-started">
+				<h2>Get Started DJing</h2>
+				
+				<p><a href="#boot">Boot Crossfade GNU/Linux.</a> Make sure any external audio interfaces (sound cards) and controllers you are using are plugged into the PC. If the audio interfaces or controllers require their own power supplies, ensure those are plugged in as well. If there are Linux drivers for them, the drivers are already installed.</p>
+				
+				<p>Start Mixxx by double clicking the icon on the desktop. If an audio interface or controller was not plugged in when Mixxx started, close Mixxx, plug them in, and restart Mixxx. Configure the sound outputs and inputs by going to Options > Preferences on the top menu bar of the main Mixxx window (or pressing Ctrl + P). To DJ without an external mixer, select the appropriate audio interfaces and channels for the "Master" and "Headphones" fields. To use an external mixer, select the appropriate audio interfaces and channels for the "Deck 1" and "Deck 2" fields. To use timecoded vinyls or CDs and/or a microphone, select the "Input" tab in the configuration window and select the appropriate interfaces and channels.</p>
+				
+				<p>Sometime before you play, when you can let a computer work for several hours, have Mixxx analyze the music library in advance. This will allow you to see the BPM of tracks before loading them and have their waveforms load quickly. Otherwise, Mixxx will analyze each track as it is loaded it into a deck, which will put a heavy load on the computer while DJing. To analyze the whole library on the USB drive, go to "Analyze" on the left panel of Mixxx's library display. At the top left of the library display, select the button next to "All", press the "Select All" button, then press the "Analyze" button.</p>
+
+				<ol>
+					<li id="import-library">
+						<h3>Import Music From Another Drive</h3>
+						
+						<p>By default, Mixxx will scan the first partition of a Crossfade GNU/Linux USB drive, mounted on /home/liveuser/music, for the music library. The contents of this directory are what is visible when a USB drive with Crossfade GNU/Linux installed on it is plugged into a PC running Windows or Mac OS X.</p>
+						
+						<p>To play music stored on another drive, either an internal hard or solid state drive or external USB drive, add it to Mixxx's library. In Mixxx, go to Options > Preferences (or press Control + P) and click "Library" on the left. Click the "Browse..." button. If you are using an external drive, be sure it is plugged in. Find the drive from the list on the left panel of the directory selection window. Navigate to wherever the music directory is on the drive. Note that this dialog is asking you to select a directory, not individual files. Select the directory and press "Ok" (you do not need to open the directory). To import music from a drive with Windows or Mac OS X on it and music stored in the Music folder on either of those OSs, select the "Users/USER-NAME/Music" directory. Press "Ok" on the directory selection dialog and press "Ok" on the Mixxx configuration window. In the main Mixxx window, go to Library > Rescan Library on the top left menu bar. Depending on how much music there is in the directory you selected, this could take a while. To use the same external drive across reboots, it will need to be manually mounted after each boot. This can be done from the Thunar file manager, which can be opened by clicking the file cabinet icon on the left of the bottom panel, next to the Applications menu. To avoid having to do this each boot, store music on the same USB drive that Crossfade GNU/Linux is installed on.</p>
+					</li>
+					
+					<li id="configure-controllers">
+						<h3>Configure MIDI &amp; HID Controllers</h3>
+						
+						<p>Make sure the MIDI or HID controller is plugged in before starting Mixxx. To use a controller (or multiple) to control Mixxx, go to "Controllers" on the left of the configuration dialog (Options > Preferences on the top menu bar or press Control + P), and select the controller. Click the "Enabled" checkbox and select the model of the controller in the "Load Preset" menu. If the model of the controller is not listed, <a href="http://mixxx.org/forums/search.php?fid%5B0%5D=7">search the Mixxx forums</a> to see if anyone has made a mapping already. To use a community-made mapping, download the archive and save it. Open the Thunar file manager by clicking the file cabinet icon in the bottom left. Right click on the archive and select "Extract To...". Put "/home/liveuser/.mixxx/controllers" (without quotes) in the location bar at the top of the archive extraction dialog and press the "Extract" button. Restart Mixxx if it is running. Go back to the Mixxx controller preferences and select the mapping you just installed.</p>
+						
+						<p>You can make your own mapping by clicking the "Learning Wizard (MIDI Only)" button. For more advanced functions such as jog wheels, you will need to <a href="http://mixxx.org/wiki/doku.php/midi_controller_mapping_file_format">edit the XML mapping file</a> and/or <a href="http://mixxx.org/wiki/doku.php/midi_scripting">write a QtScript mapping</a>. If you make a new mapping, please share it with the community on <a href="http://mixxx.org/forums/viewforum.php?f=7">the Mixxx forums</a>.</p>
+						
+						<p id="native-instruments">Note that Native Instruments controllers use neither MIDI nor HID; they use Native Instruments' proprietary <acronym title="Native Hardware Library">NHL</acronym> protocol that only Traktor supports. Although they can be switched to a MIDI mode using Native Instruments' Controller Editor program in Windows and Mac OS X, this cannot be done from GNU/Linux. However, the audio interfaces sold by Native Instruments (both the standalone ones and the ones integrated into DJ controllers) do work with Linux.</p>
+					</li>
+					
+					<li id="fun">
+						<h3>Have Fun!</h3>
+						
+						<p>Does your music feel good to you? Does it feel good to your audience?</p>
+					</li>
+					
+					<li id="mixxx-manual">
+						<h3>Mixxx Manual</h3>
+						
+						<p>If the above instructions were confusing to you or you want to learn more about how to use Mixxx, read the Mixxx manual by double clicking the shortcut on the desktop or <a href="http://mixxx.org/manual/1.11/">viewing it online</a>. It has diagrams and screenshots to help illustrate the setups described above. If you have questions, ask on the <a href="http://mixxx.org/forums/viewforum.php?f=3">Mixxx forums</a> or on IRC in the channel <a href="http://mixxx.org/irc.php">#mixxx</a> on <a href="http://freenode.net/">Freenode.net</a>.</p>
+					</li>
+				</ol>
+			</li>
+			
+			<li id="other">
+				<h2>Sound Outside Of Mixxx</h2>
+				
+				<p>Sound from any programs other than Mixxx, such as Clementine and Midori, will be played through the PulseAudio sound server, which Mixxx needs to disable to have direct access to the <acronym title="Advanced Linux Sound Architecture">ALSA</acronym> device for your audio interface (sound card). Thus, sound from any application other than Mixxx cannot be played while Mixxx is running (unless you setup <acronym title="JACK Audio Connection Kit">JACK</acronym>, configure Mixxx to use JACK, and configure other programs to use JACK). To change which audio interfaces other programs output to, use the PulseAudio Volume Control program. There is a shortcut for this program on the desktop. In this program, on the sound source that you want to play out another audio interface, click the button with the name of the audio interface it is coming out of then select the one you want it to come out of. Note that the Audio Mixer (xfce4-mixer) program is for controling the ALSA mixer for your audio interface, not changing PulseAudio settings (although it can adjust the master volume for PulseAudio).</p>
+				
+				<p>For an overview of the overcomplicated state of Linux audio, see <a href="http://tuxradar.com/content/how-it-works-linux-audio-explained">this article</a>.</p>
+			</li>
+			
+			<li id="modification">
+				<h2>Modification</h2>
+
+				<p>Crossfade GNU/Linux is made with a Kickstart file and a patched version of the livecd-creator program from Fedora. The Kickstart file defines the packages included in the distribution and contains scripts to run before building a bootable ISO image. The Fedora wiki has a <a href="https://fedoraproject.org/wiki/Anaconda/Kickstart">reference page</a> documenting the Kickstart file format. You may change it however you wish and share your changes as long as you follow the terms of the <a href="license.html">GNU General Public License</a>.</p>
+				
+				<p>The Kickstart file is available in Crossfade GNU/Linux at /usr/share/crossfade/crossfade-0.90.ks. It copies files from the directory it is in to the ISO image, so if you copy the Kickstart file, copy the other files in that directory with it. To copy those files into the ISO image on Fedora, the imgcreate and pykickstart Python libraries need to be patched after installing the livecd-tools package with yum. The patches are in the Kickstart file and are automatically applied to the generated ISO image so Crossfade GNU/Linux can rebuild itself.</p>
+				
+				<p>To build an ISO image, an Internet connection and a drive with several GB free space is necessary. As root on Crossfade GNU/Linux or Fedora, run livecd-creator with the Kickstart file specified with the -c option. Specify locations on a drive with several GB of free space for the --cache and --tmpdir options. livecd-creator will save the ISO image to the directory it is run from, so make sure there is at least 860 MiB available there.</p>
+				
+				<p>If you are building an ISO from an x86_64 Fedora installation (Crossfade GNU/Linux is i686), prefix the livecd-creator command with "setarch i686" to make a 32-bit ISO image that is compatible with computers with older 32-bit i686 CPUs. When you need a backup system at a gig, you never know what kind of PC will be around, so it is recommened to make it compatible with as much hardware as possible. To build an x86_64 ISO image, change the "planetccrma-core-PAE" package to "planetccrma-core" and "kernel-rtPAE-modules-extras" to "kernel-rt-modules-extra" in the Kickstart file before running livecd-creator.</p>
+			</li>
+			
+			<li id="legal">
+				<h2>Legal Information</h2>
+				
+				<ol>
+					<li id="trademarks">
+						<h3>Trademarks</h3>
+						<p>Crossfade GNU/Linux is a <a href="https://fedoraproject.org/wiki/Remix">Fedora&reg; Remix</a> containing software from sources other than Fedora, namely <a href="http://rpmfusion.org/">RPMFusion</a> and <a href="http://ccrma.stanford.edu/planetccrma/software/">PlanetCCRMA</a>, as well as scripts and configurations specific to Crossfade GNU/Linux. Fedora&reg; is a registered trademark of Red Hat, Inc. This is NOT provided or supported by the Fedora Project or Red Hat, Inc. Official Fedora Spins are available through the <a href="http://fedoraproject.org/get-fedora">Fedora Project website</a> through free downloads of live DVD/USB installation images. The Fedora Project also maintains links to <a href="http://fedoraproject.org/wiki/Distribution/OnlineVendors">online</a> and <a href="http://fedoraproject.org/wiki/Distribution/LocalVendors">local</a> vendors selling installation media and <a href="https://fedoraproject.org/wiki/FreeMedia">a volunteer initiative to provide free media upon request</a>.</p>
+					</li>
+					
+					<li id="copyleft">
+						<h3>Copyleft</h3>
+						
+						<p>Crossfade GNU/Linux 0.90<br />
+						Copyright &copy; 2015 Be &lt;be.0@gmx.com&gt;</p>
+
+						<p>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the <a href="license.html">GNU General Public License</a> for more details.</p>
+					</li>
+				</ol>
+			</li>
+		</ol>
+	</body>
+</html>
