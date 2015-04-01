@@ -218,6 +218,7 @@ mate-disk-usage-analyzer
 # miscellaneous
 screen
 htop
+grsync
 p7zip
 unar
 isomd5sum
