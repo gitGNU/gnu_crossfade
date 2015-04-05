@@ -148,12 +148,15 @@ ffado
 
 # music
 mixxx
-clementine
 xwax
 giada
 sooperlooper
 projectM-jack
 projectM-pulseaudio
+
+clementine
+soundconverter
+puddletag
 
 audacity-freeworld
 ardour3
