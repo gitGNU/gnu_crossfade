@@ -258,8 +258,8 @@ if [ $driveSectors -le $mbrMax ]; then
 	# GNU/Linux automounting also ignores type EF partitions
 	# Linux does not care about partition type codes. If it can read the filesystem on a block device, it will.
 	musicSize="$(( $deviceSize - $efiSize - $systemSize - $homeSize ))"
-	sfdisk $device -D -u M --no-reread << partition-table 2>&1 | sed -e '/DOS partition/d' -e '/zero the first 512/d' -e '/See fdisk/d'
-,${musicSize},0c
+	sfdisk $device --unit=M --in-order --Linux --no-reread << partition-table 2>&1 | sed -e '/DOS partition/d' -e '/zero the first 512/d' -e '/See fdisk/d'
+1,${musicSize},0c
 ,${efiSize},ef,*
 ,${systemSize},83
 ,+,83
