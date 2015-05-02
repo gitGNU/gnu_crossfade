@@ -270,9 +270,9 @@ else
 	# Some EFI implementations will only look at the first FAT partition for an EFI bootloader, so put it first in the GPT partition table
 	
 	function quietsgdisk {
-		sgdisk "$@" 2>&1 | sed -e '/GPT data structures/d' -e '/new GPT entries/d' -e '/other utilities/d' -e '/completed successfully/d' -e '/partNum is /d' -e '/etting name/d' -e '/kernel is still using/d' -e '/run partprobe/d' -e '/The new table will be used/d'
+		sgdisk "$@" 2>&1 | sed -e '/new GPT entries/d' -e '/other utilities/d' -e '/completed successfully/d' -e '/partNum is /d' -e '/etting name/d' -e '/kernel is still using/d' -e '/run partprobe/d' -e '/The new table will be used/d'
 	}
-	quietsgdisk -Z $device
+	sgdisk -Z $device &>/dev/null
 	quietsgdisk -n 1:0:+${grubBiosSize}M $device
 	quietsgdisk -n 2:0:+${efiSize}M $device 
 	quietsgdisk -n 3:0:+${systemSize}M $device
@@ -293,7 +293,6 @@ else
 	mkfs.hfsplus -v 'more music' ${device}$(( $musicPartition + 1)) | sed '/HFS Plus volume/d'
 	quietsgdisk -c 6:'more music' $device
 	quietsgdisk -t 6:'af00' $device
-
 	# Create a hybrid MBR with the music partition listed first because CDJs only read MBR partition tables and only read the first partition.
 	# Windows will only read the MBR of any drive with a hybrid MBR. (Windows XP and older do not support GPT.)
 	# Mac EFI firmware will read the MBR partition table of USB drives if there is no type EE partition first in the MBR, so the EFI partition with GRUB must be included in hybrid MBR.
