@@ -15,7 +15,7 @@
 grubBiosSize=2
 musicPartition=1
 efiPartition=2
-efiSize=35 # a little bigger than neccessary for the files so it can be formated FAT32 rather than FAT16. Some EFI firmwares specifically require FAT32.
+efiSize=36
 systemPartition=3
 isoSize=860
 systemSize=4096
@@ -242,8 +242,8 @@ if [ "$liveImage" != "/run/initramfs/livedev" ] && [ "$(file --mime $liveImage 2
 	printf '\n'
 fi
 
-for dev in ${device}*; do
-	grep busy <(umount $dev 2>&1 || exit $?)
+for dev in $(grep $device /etc/mtab|awk '{print $1}'); do
+	umount $dev || exit $?
 done
 
 echo "Installing Crossfade GNU/Linux. This will take a few minutes. Do not remove $device until installation finishes.
@@ -258,7 +258,7 @@ if [ $driveSectors -le $mbrMax ]; then
 	# GNU/Linux automounting also ignores type EF partitions
 	# Linux does not care about partition type codes. If it can read the filesystem on a block device, it will.
 	musicSize="$(( $deviceSize - $efiSize - $systemSize - $homeSize ))"
-	sfdisk $device -D -u M &>/dev/null << partition-table
+	sfdisk $device -D -u M --no-reread << partition-table 2>&1 | sed -e '/DOS partition/d' -e '/zero the first 512/d' -e '/See fdisk/d'
 ,${musicSize},0c
 ,${efiSize},ef,*
 ,${systemSize},83
@@ -266,36 +266,40 @@ if [ $driveSectors -le $mbrMax ]; then
 partition-table
 	partprobe 2>&1 | grep "${device#\/dev\/}"
 else
-	echo "Note: Because $device is over 2 TiB, the music partition will only fill the drive up to 2 TiB. This is to maintain compatibility with CDJs (which only read the first partition in the MBR partition table). In GNU/Linux, it will appear as the fifth partition on the USB drive, labeled \"music\". Another partition will automatically be created from 2 TiB to the end of the drive. This secondary music partition is visible in OS X and in GNU/Linux, labeled \"more music\", but it is not visible to Windows or CDJs. Crossfade GNU/Linux automatically mounts the secondary music partition at /home/liveuser/music/partition-6 and music on it is scanned by Mixxx."
+	printf "\nNote: Because $device is over 2 TiB, the music partition will only fill the drive up to 2 TiB. This is to maintain compatibility with CDJs (which only read the first partition in the MBR partition table). In GNU/Linux, it will appear as the fifth partition on the USB drive, labeled \"music\". Another partition will automatically be created from 2 TiB to the end of the drive. This secondary music partition is visible in OS X and in GNU/Linux, labeled \"more music\", but it is not visible to Windows or CDJs. Crossfade GNU/Linux automatically mounts the secondary music partition at /home/liveuser/music/partition-6 and music on it is scanned by Mixxx.\n"
 	# Some EFI implementations will only look at the first FAT partition for an EFI bootloader, so put it first in the GPT partition table
-	sgdisk -Z $device &>/dev/null
-	sgdisk -n 1:0:+${grubBiosSize}M $device &>/dev/null
-	sgdisk -n 2:0:+${efiSize}M $device &>/dev/null 
-	sgdisk -n 3:0:+${systemSize}M $device &>/dev/null
-	sgdisk -n 4:0:+${homeSize}M $device &>/dev/null
-	sgdisk -n 5:0:${mbrMax} $device &>/dev/null
-	sgdisk -n 6:0:0 $device &>/dev/null
+	
+	function quietsgdisk {
+		sgdisk "$@" 2>&1 | sed -e '/GPT data structures/d' -e '/new GPT entries/d' -e '/other utilities/d' -e '/completed successfully/d' -e '/partNum is /d' -e '/etting name/d' -e '/kernel is still using/d' -e '/run partprobe/d' -e '/The new table will be used/d'
+	}
+	quietsgdisk -Z $device
+	quietsgdisk -n 1:0:+${grubBiosSize}M $device
+	quietsgdisk -n 2:0:+${efiSize}M $device 
+	quietsgdisk -n 3:0:+${systemSize}M $device
+	quietsgdisk -n 4:0:+${homeSize}M $device
+	quietsgdisk -n 5:0:+${mbrMax}M $device
+	quietsgdisk -n 6:0:0 $device
 	partprobe 2>&1 | grep "${device#\/dev\/}"
-	sgdisk -c 1:'GRUB BIOS Partition' $device &>/dev/null
-	sgdisk -t 1:'ef02' $device &>/dev/null
-	sgdisk -c 2:'EFI System Partition' $device &>/dev/null
-	sgdisk -t 2:'ef00' $device &>/dev/null
-	sgdisk -c 3:'Crossfade GNU/Linux' $device &>/dev/null
-	sgdisk -c 4:'home' $device &>/dev/null
-	sgdisk -c 5:'music' $device &>/dev/null
+	quietsgdisk -c 1:'GRUB BIOS Partition' $device
+	quietsgdisk -t 1:'ef02' $device
+	quietsgdisk -c 2:'EFI System Partition' $device
+	quietsgdisk -t 2:'ef00' $device
+	quietsgdisk -c 3:'Crossfade GNU/Linux' $device
+	quietsgdisk -c 4:'home' $device
+	quietsgdisk -c 5:'music' $device
 	# Mac OS X will not mount GPT partitions with type code ef00, ef02, or types it does not recognize, such as 8300 (sgdisk's default). (Neither will Windows, but see next comment.)
-	sgdisk -t 5:'0700' $device &>/dev/null
+	quietsgdisk -t 5:'0700' $device
 	# Windows will only read MBR partition table on drives with a hybrid MBR, so partition 6 is only accessible to OS X and GNU/Linux. Therefore, there is no need for a FAT filesystem.
-	mkfs.hfsplus -v 'more music' ${device}$(( $musicPartition + 1)) &>/dev/null
-	sgdisk -c 6:'more music' $device &>/dev/null
-	sgdisk -t 6:'af00' $device &>/dev/null
+	mkfs.hfsplus -v 'more music' ${device}$(( $musicPartition + 1)) | sed '/HFS Plus volume/d'
+	quietsgdisk -c 6:'more music' $device
+	quietsgdisk -t 6:'af00' $device
 
 	# Create a hybrid MBR with the music partition listed first because CDJs only read MBR partition tables and only read the first partition.
 	# Windows will only read the MBR of any drive with a hybrid MBR. (Windows XP and older do not support GPT.)
 	# Mac EFI firmware will read the MBR partition table of USB drives if there is no type EE partition first in the MBR, so the EFI partition with GRUB must be included in hybrid MBR.
 	# OS X will read the GPT partition table (unless a second type EE MBR partition is added).
 	# See http://www.rodsbooks.com/gdisk/hybrid.html for more information about hybrid MBRs.
-	sgdisk -h ${musicPartition}:${efiPartition} ${device} &>/dev/null
+	quietsgdisk -h ${musicPartition}:${efiPartition} ${device}
 	sfdisk $device --dump > /mbr-table
 	device="${device#\/dev\/}"
 	grep ${device}2 /mbr-table > /mbr-partition-1
@@ -303,26 +307,37 @@ else
 	grep ${device}1 /mbr-table > /mbr-partition-3 # protective MBR type EE partition
 	device="/dev/${device}"
 	sed -i "/start/d" /mbr-table
-	cat /mbr-table /mbr-partition-[1-3] 2>/dev/null | sfdisk --force ${device} &>/dev/null
-	rm /mbr-table /mbr-partition-[1-3] 2>/dev/null
+	cat /mbr-table /mbr-partition-[1-3] 2>/dev/null | sfdisk --no-reread --force ${device} 2>&1 1>/dev/null | sed -e '/cylinder boundary/d' -e '/marked bootable/d' -e '/LILO/d' -e '/DOS partition/d' -e '/zero the first 512/d' -e '/See fdisk/d' -e '/BLKRRPART/d' -e '/read the partition/d' -e '/un partprobe/d' -e '/before using mkfs/d'
+	rm /mbr-table /mbr-partition-[1-3]
 	# Windows will only read MBR partitions with type codes it recognizes
-	sfdisk $device -c 0c &>/dev/null
+	sfdisk $device -c 1 0c 2>&1 | sed -e '/Done/d'
+	printf "\nHybrid MBR partition table:\n"
+	fdisk -l $device
+	printf "\nGPT partition table:\n\n"
+	sgdisk -p $device
+	printf "\n"
 fi
 
-mkfs.vfat -n music ${device}${musicPartition} &>/dev/null
-mkfs.vfat -n EFI -F 32 ${device}${efiPartition} &>/dev/null
+echo "Formatting partitions..."
+
+function quietMKvfat {
+	"$@" 2>&1 | sed -e '/lowercase labels/d' -e '/mkfs.fat [0-9]\+\.[0-9]\+\.[0-9]\+ /d'
+}
+
+quietMKvfat mkfs.vfat -n music ${device}${musicPartition}
+quietMKvfat mkfs.vfat -n EFI -F 32 ${device}${efiPartition}
 if [ $installType == 'compressed' ]; then
 	# Mac EFI firmware freezes when it tries to read a partition on a USB drive with an ISO9660 filesystem, so copy contents of ISO image onto a FAT filesystem
-	mkfs.vfat -n Crossfade ${device}${systemPartition} &>/dev/null
-	mkfs.ext4 -F -O ^has_journal -L home ${device}${homePartition} &>/dev/null # Journaling creates unneeded I/O on USB drive
+	quietMKvfat mkfs.vfat -n Crossfade ${device}${systemPartition}
+	mkfs.ext4 -q -F -O ^has_journal -L home ${device}${homePartition} # Journaling creates unneeded I/O on USB drive
 else
-	mkfs.ext4 -F -L Crossfade ${device}${systemPartition} &>/dev/null
-	mkfs.ext4 -F -L home ${device}${homePartition} &>/dev/null
+	mkfs.ext4 -q -F -L Crossfade ${device}${systemPartition}
+	mkfs.ext4 -q -F -L home ${device}${homePartition}
 fi
 
 # Unmount all partitions in case they were automounted
-for dev in ${device}*; do
-	grep busy <(umount $dev 2>&1 || exit $?)
+for dev in $(grep $device /etc/mtab|awk '{print $1}'); do
+	umount $dev || exit $?
 done
 
 echo "Copying files..."
@@ -392,23 +407,27 @@ if [ $installType == 'compressed' ]; then
 else
 	# preserve permissions, owners, groups, ACL's, xattrs, times, symlinks, hardlinks
 	rsync --exclude 'home/liveuser/*' --exclude 'installTarget' --exclude 'sys/*' --exclude 'proc/*' --exclude 'run/*' --exclude 'dev/*' --exclude 'tmp/*' --exclude 'var/tmp/*' --exclude 'etc/machine-id' -pogAXtlHrDx ${root}/ /tmp/crossfade-mounts/installTarget || exit $?
-	${root}/usr/bin/systemd-firstboot --root=/tmp/crossfade-mounts/installTarget --copy-locale --copy-timezone --setup-machine-id &>/dev/null
+	${root}/usr/bin/systemd-firstboot --root=/tmp/crossfade-mounts/installTarget --copy-locale --copy-timezone --setup-machine-id 2>&1 | sed '/machine-id written/d'
 	sed -i 's/NoDisplay=false/NoDisplay=true/' '/tmp/crossfade-mounts/installTarget/usr/share/applications/liveinst.desktop'
 fi
 sync
 
 echo "Installing GRUB bootloader..."
+function quietGRUBinstall {
+	"$@" 2>&1 | sed -e '/Installation finished/d' -e '/device node not found/d'
+}
 mount ${device}${efiPartition} ${root}/mnt
 if [ $liveImage ]; then
 	# chroot into Crossfade GNU/Linux image so users do not need to have GRUB with i386-pc, i386-efi, and x86_64-efi modules installed on their system. Also, Fedora packages the GRUB installer script as grub2-install whereas other distributions call it grub-install.
 	mount -o bind /dev /tmp/crossfade-mounts/rootImage/dev
-	chroot /tmp/crossfade-mounts/rootImage grub2-install --target=i386-pc --boot-directory=/mnt ${device} &>/dev/null
-	chroot /tmp/crossfade-mounts/rootImage grub2-install --target=i386-efi --boot-directory=/mnt --efi-directory=/mnt --removable &>/dev/null
-	chroot /tmp/crossfade-mounts/rootImage grub2-install --target=x86_64-efi --boot-directory=/mnt  --efi-directory=/mnt --removable &>/dev/null
+	mount -o bind /proc /tmp/crossfade-mounts/rootImage/proc
+	quietGRUBinstall chroot /tmp/crossfade-mounts/rootImage grub2-install --target=i386-pc --boot-directory=/mnt ${device}
+	quietGRUBinstall chroot /tmp/crossfade-mounts/rootImage grub2-install --target=i386-efi --boot-directory=/mnt --efi-directory=/mnt --removable
+	quietGRUBinstall chroot /tmp/crossfade-mounts/rootImage grub2-install --target=x86_64-efi --boot-directory=/mnt  --efi-directory=/mnt --removable
 else
-	grub2-install --target=i386-pc --boot-directory=/mnt ${device} &>/dev/null
-	grub2-install --target=i386-efi --boot-directory=/mnt --efi-directory=/mnt --removable &>/dev/null
-	grub2-install --target=x86_64-efi --boot-directory=/mnt  --efi-directory=/mnt --removable &>/dev/null
+	quietGRUBinstall grub2-install --target=i386-pc --boot-directory=/mnt ${device}
+	quietGRUBinstall grub2-install --target=i386-efi --boot-directory=/mnt --efi-directory=/mnt --removable
+	quietGRUBinstall grub2-install --target=x86_64-efi --boot-directory=/mnt  --efi-directory=/mnt --removable
 fi
 
 kernelGRUBline="crossfadeboot rhgb music=UUID=$(blkid -s UUID -o value ${device}${musicPartition}) persistenthome=UUID=$(blkid -s UUID -o value ${device}${homePartition})"
@@ -419,15 +438,20 @@ if [ $installType == 'compressed' ]; then
 	kernelGRUBline="linux /isolinux/vmlinuz0 $kernelGRUBline root=live:UUID=$(blkid -s UUID -o value ${device}${systemPartition})"
 	initrdGRUBline="initrd /isolinux/initrd0.img"
 else
+	
 	kernelVersion="/tmp/crossfade-mounts/installTarget/boot/vmlinuz-*rtPAE"
 	kernelVersion="$(echo $kernelVersion)"
 	kernelVersion="${kernelVersion#\/tmp\/crossfade-mounts\/installTarget\/boot\/vmlinuz-}"
+	mount -o bind /proc /tmp/crossfade-mounts/installTarget/proc
+	mount -o bind /sys /tmp/crossfade-mounts/installTarget/sys
 	if [ $liveImage ]; then
-		chroot /tmp/crossfade-mounts/installTarget new-kernel-pkg --rpmposttrans $kernelVersion &>/dev/null
-		chroot /tmp/crossfade-mounts/installTarget new-kernel-pkg --mkinitrd --dracut --depmod --install $kernelVersion &>/dev/null
+		chroot /tmp/crossfade-mounts/installTarget new-kernel-pkg --rpmposttrans $kernelVersion 2>&1 | sed '/\/etc\/os-release/d'
+		chroot /tmp/crossfade-mounts/installTarget new-kernel-pkg --mkinitrd --dracut --depmod --install $kernelVersion 2>&1 | sed -e '/\/etc\/os-release/d' -e '/logging/d'
 	fi
 	# Prevent ldconfig.service from running at boot
-	chroot /tmp/crossfade-mounts/installTarget /usr/lib/systemd/systemd-update-done &>/dev/null
+	chroot /tmp/crossfade-mounts/installTarget /usr/lib/systemd/systemd-update-done
+	umount /tmp/crossfade-mounts/installTarget/proc
+	umount /tmp/crossfade-mounts/installTarget/sys
 	kernelGRUBline="linux /boot/vmlinuz-${kernelVersion} $kernelGRUBline root=UUID=$(blkid -s UUID -o value ${device}${systemPartition})"
 	initrdGRUBline="initrd /boot/initramfs-${kernelVersion}.img"
 fi
@@ -472,6 +496,7 @@ grubcfg
 umount ${root}/mnt
 if [ $liveImage ]; then
 	umount /tmp/crossfade-mounts/rootImage/dev
+	umount /tmp/crossfade-mounts/rootImage/proc
 	umount /tmp/crossfade-mounts/rootImage
 	rmdir /tmp/crossfade-mounts/rootImage
 	umount /tmp/crossfade-mounts/squash
@@ -486,5 +511,6 @@ fi
 
 umount /tmp/crossfade-mounts/installTarget
 rmdir /tmp/crossfade-mounts/installTarget
+rmdir /tmp/crossfade-mounts
 
 echo "Crossfade GNU/Linux successfully installed on ${device}. You may now remove ${device}."
