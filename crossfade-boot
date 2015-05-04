@@ -18,7 +18,7 @@ fi
 getKernelArg() {
 	for arg in `cat /proc/cmdline` ; do
 		if [ "${arg##$1=}" != "${arg}" ]; then
-			eval "$1=${arg##$1=}"
+			declare -g $1="${arg##$1=}"
 		fi
 	done
 }
