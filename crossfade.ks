@@ -167,6 +167,7 @@ fmit
 # qsynth
 # yoshimi
 lv2*plugins
+-lv2-ambix-plugins # over 400 MiB
 ladspa*plugins
 # Do not include both LV2 and LADSPA versions of plugins that have packages for both to avoid cluttering menus
 -ladspa-calf-plugins
