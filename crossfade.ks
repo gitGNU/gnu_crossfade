@@ -21,7 +21,7 @@ selinux --enforcing
 firewall --enabled --service=mdns
 xconfig --startxonboot
 services --enabled=NetworkManager --disabled=network,sshd
-part / --size 3500
+part / --size 5000
 
 repo --name=fedora --mirrorlist=http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-21&arch=i386
 repo --name=updates --mirrorlist=http://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f21&arch=i386
