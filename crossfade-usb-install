@@ -18,7 +18,7 @@ efiPartition=2
 efiSize=36
 systemPartition=3
 isoSize=860
-systemSize=4096
+systemSize=2560
 homePartition=4
 homeSize=512
 installType='uncompressed'
@@ -330,8 +330,10 @@ if [ $installType == 'compressed' ]; then
 	quietMKvfat mkfs.vfat -n Crossfade ${device}${systemPartition}
 	mkfs.ext4 -q -F -O ^has_journal -L home ${device}${homePartition} # Journaling creates unneeded I/O on USB drive
 else
-	mkfs.ext4 -q -F -L Crossfade ${device}${systemPartition}
-	mkfs.ext4 -q -F -L home ${device}${homePartition}
+# 	mkfs.ext4 -q -F -L Crossfade ${device}${systemPartition}
+# 	mkfs.ext4 -q -F -L home ${device}${homePartition}
+	mkfs.btrfs -f -L Crossfade ${device}${systemPartition} >/dev/null
+	mkfs.btrfs -f -L home ${device}${homePartition} >/dev/null
 fi
 
 # Unmount all partitions in case they were automounted
@@ -382,7 +384,8 @@ mv ~/.mtoolsbackup ~/.mtoolsrc &>/dev/null
 
 
 mkdir /tmp/crossfade-mounts/homePartition
-mount ${device}${homePartition} /tmp/crossfade-mounts/homePartition
+# mount ${device}${homePartition} /tmp/crossfade-mounts/homePartition
+mount -o compress=zlib ${device}${homePartition} /tmp/crossfade-mounts/homePartition
 rsync --exclude 'liveuser/music/*' -pogAXtlHrDx ${root}/home/ /tmp/crossfade-mounts/homePartition
 if [ $installType == 'compressed' ]; then
 	mkdir /tmp/crossfade-mounts/homePartition/.autorun
@@ -400,7 +403,8 @@ umount /tmp/crossfade-mounts/homePartition
 rmdir /tmp/crossfade-mounts/homePartition
 
 mkdir /tmp/crossfade-mounts/installTarget
-mount ${device}${systemPartition} /tmp/crossfade-mounts/installTarget
+# mount ${device}${systemPartition} /tmp/crossfade-mounts/installTarget
+mount -o compress=zlib ${device}${systemPartition} /tmp/crossfade-mounts/installTarget
 if [ $installType == 'compressed' ]; then
 	cp -R /tmp/crossfade-mounts/liveImage/* /tmp/crossfade-mounts/installTarget || exit $?
 else
@@ -438,20 +442,22 @@ if [ $installType == 'compressed' ]; then
 	initrdGRUBline="initrd /isolinux/initrd0.img"
 else
 	
-	kernelVersion="/tmp/crossfade-mounts/installTarget/boot/vmlinuz-*rtPAE"
+# 	kernelVersion="/tmp/crossfade-mounts/installTarget/boot/vmlinuz-*rtPAE"
+	kernelVersion="/tmp/crossfade-mounts/installTarget/boot/vmlinuz-*PAE"
 	kernelVersion="$(echo $kernelVersion)"
 	kernelVersion="${kernelVersion#\/tmp\/crossfade-mounts\/installTarget\/boot\/vmlinuz-}"
 	mount -o bind /proc /tmp/crossfade-mounts/installTarget/proc
 	mount -o bind /sys /tmp/crossfade-mounts/installTarget/sys
 	if [ $liveImage ]; then
 		chroot /tmp/crossfade-mounts/installTarget new-kernel-pkg --rpmposttrans $kernelVersion 2>&1 | sed '/\/etc\/os-release/d'
-		chroot /tmp/crossfade-mounts/installTarget new-kernel-pkg --mkinitrd --dracut --depmod --install $kernelVersion 2>&1 | sed -e '/\/etc\/os-release/d' -e '/logging/d'
+		chroot /tmp/crossfade-mounts/installTarget new-kernel-pkg --depmod --install $kernelVersion 2>&1 | sed -e '/\/etc\/os-release/d' -e '/logging/d'
+		chroot /tmp/crossfade-mounts/installTarget dracut --force --add btrfs --kver $kernelVersion
 	fi
 	# Prevent ldconfig.service from running at boot
-	chroot /tmp/crossfade-mounts/installTarget /usr/lib/systemd/systemd-update-done
+# 	chroot /tmp/crossfade-mounts/installTarget /usr/lib/systemd/systemd-update-done
 	umount /tmp/crossfade-mounts/installTarget/proc
 	umount /tmp/crossfade-mounts/installTarget/sys
-	kernelGRUBline="linux /boot/vmlinuz-${kernelVersion} $kernelGRUBline root=UUID=$(blkid -s UUID -o value ${device}${systemPartition})"
+	kernelGRUBline="linux /boot/vmlinuz-${kernelVersion} $kernelGRUBline root=UUID=$(blkid -s UUID -o value ${device}${systemPartition}) rootflags=compress=zlib"
 	initrdGRUBline="initrd /boot/initramfs-${kernelVersion}.img"
 fi
 
