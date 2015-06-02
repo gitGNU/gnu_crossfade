@@ -57,7 +57,11 @@ getKernelArg persistenthome
 getRealDevice persistenthome
 if [[ $persistenthome ]]; then
 	echo "Mounting persistent /home $persistenthome"
-	mount -o noatime,async $persistenthome /home
+	if [ "$(blkid -s TYPE -o value $persistenthome 2>/dev/null)" == "btrfs" ]; then
+		mount -o compress=zlib,noatime,async $persistenthome /home
+	else
+		mount -o noatime,async $persistenthome /home
+	fi
 	if [ -d /home/home ]; then
 		mount --bind /home/home /home
 	fi
