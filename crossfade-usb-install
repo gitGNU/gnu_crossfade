@@ -258,12 +258,22 @@ if [ $driveSectors -le $mbrMax ]; then
 	# GNU/Linux automounting also ignores type EF partitions
 	# Linux does not care about partition type codes. If it can read the filesystem on a block device, it will.
 	musicSize="$(( $deviceSize - $efiSize - $systemSize - $homeSize ))"
-	sfdisk $device --unit=M --in-order --Linux --no-reread << partition-table 2>&1 | sed -e '/DOS partition/d' -e '/zero the first 512/d' -e '/See fdisk/d'
-1,${musicSize},0c
-,${efiSize},ef,*
-,${systemSize},83
+# 	TODO: if [ $(sfdisk -v|extract version number) < 2.26 ]; then
+# 	sfdisk $device --unit=M --in-order --Linux --no-reread << partition-table 2>&1 | sed -e '/DOS partition/d' -e '/zero the first 512/d' -e '/See fdisk/d'
+# 1,${musicSize},0c
+# ,${efiSize},ef,*
+# ,${systemSize},83
+# ,+,83
+# partition-table
+# 	else
+		sfdisk $device --no-reread << partition-table
+label: dos
+1M,${musicSize}M,0c
+,${efiSize}M,ef,*
+,${systemSize}M,83
 ,+,83
 partition-table
+# 	fi
 	partprobe 2>&1 | grep "${device#\/dev\/}"
 else
 	printf "\nNote: Because $device is over 2 TiB, the music partition will only fill the drive up to 2 TiB. This is to maintain compatibility with CDJs (which only read the first partition in the MBR partition table). In GNU/Linux, it will appear as the fifth partition on the USB drive, labeled \"music\". Another partition will automatically be created from 2 TiB to the end of the drive. This secondary music partition is visible in OS X and in GNU/Linux, labeled \"more music\", but it is not visible to Windows or CDJs. Crossfade GNU/Linux automatically mounts the secondary music partition at /home/liveuser/music/partition-6 and music on it is scanned by Mixxx.\n"
@@ -442,8 +452,7 @@ if [ $installType == 'compressed' ]; then
 	initrdGRUBline="initrd /isolinux/initrd0.img"
 else
 	
-# 	kernelVersion="/tmp/crossfade-mounts/installTarget/boot/vmlinuz-*rtPAE"
-	kernelVersion="/tmp/crossfade-mounts/installTarget/boot/vmlinuz-*PAE"
+	kernelVersion="/tmp/crossfade-mounts/installTarget/boot/vmlinuz-*rtPAE"
 	kernelVersion="$(echo $kernelVersion)"
 	kernelVersion="${kernelVersion#\/tmp\/crossfade-mounts\/installTarget\/boot\/vmlinuz-}"
 	mount -o bind /proc /tmp/crossfade-mounts/installTarget/proc
