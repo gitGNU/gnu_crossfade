@@ -23,16 +23,16 @@ xconfig --startxonboot
 services --enabled=NetworkManager --disabled=network,sshd
 part / --size 5000
 
-repo --name=fedora --mirrorlist=http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-21&arch=i386
-repo --name=updates --mirrorlist=http://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f21&arch=i386
-repo --name=rpmfusion-free --mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-21&arch=i386
-repo --name=rpmfusion-free-updates --mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-updates-released-21&arch=i386
-repo --name=planetcore --baseurl=http://ccrma.stanford.edu/planetccrma/mirror/fedora/linux/planetcore/21/i386
-repo --name=planetccrma --baseurl=http://ccrma.stanford.edu/planetccrma/mirror/fedora/linux/planetccrma/21/i386
+repo --name=fedora --mirrorlist=http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-22&arch=i386
+repo --name=updates --mirrorlist=http://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f22&arch=i386
+repo --name=rpmfusion-free --mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-22&arch=i386
+repo --name=rpmfusion-free-updates --mirrorlist=http://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-updates-released-22&arch=i386
+repo --name=planetcore --baseurl=http://ccrma.stanford.edu/planetccrma/mirror/fedora/linux/planetcore/22/i386
+repo --name=planetccrma --baseurl=http://ccrma.stanford.edu/planetccrma/mirror/fedora/linux/planetccrma/22/i386
 
 %pre
 rpm --import https://fedoraproject.org/static/95A43F54.txt
-rpm --import 'http://rpmfusion.org/keys?action=AttachFile&do=get&target=RPM-GPG-KEY-rpmfusion-free-fedora-21'
+rpm --import 'http://rpmfusion.org/keys?action=AttachFile&do=get&target=RPM-GPG-KEY-rpmfusion-free-fedora-22'
 rpm --import http://ccrma.stanford.edu/planetccrma/apt/configuration/all/RPM-GPG-KEY.planetccrma.txt
 %end
 
@@ -85,7 +85,7 @@ dbus-x11
 
 # All of XFCE, minus a few packages that are unnecessary on a live USB and pull in heavy dependencies
 xfce4*
--xfce4-xfswitch-plugin # Pulls in GNOME dependencies
+# -xfce4-xfswitch-plugin # Pulls in GNOME dependencies
 -xfce4-sensors-plugin # Pulls in Perl dependencies
 -xfce4-vala
 -xfce4-dev-tools
@@ -289,7 +289,7 @@ parser
 if [ -d /usr/lib/grub/x86_64-efi ]; then
 	cp -r /usr/lib/grub/x86_64-efi usr/lib/grub
 else
-	wget https://alt.fedoraproject.org/pub/fedora/linux/releases/21/Everything/x86_64/os/Packages/g/grub2-efi-modules-2.02-0.11.fc21.x86_64.rpm
+	wget https://alt.fedoraproject.org/pub/fedora/linux/releases/22/Everything/x86_64/os/Packages/g/grub2-efi-modules-2.02-0.16.fc22.x86_64.rpm
 	rpm2cpio grub2-efi-modules-*.x86_64.rpm | cpio -id
 	rm grub2-efi-modules-*.x86_64.rpm
 fi
